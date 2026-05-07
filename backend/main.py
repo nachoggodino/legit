@@ -57,17 +57,27 @@ def _clone_repo_if_needed() -> None:
     repo_url: str = os.environ["GIT_REPO_URL"]
     token: str = os.environ["GIT_TOKEN"]
 
-    # Pass credentials via HTTP header so the token never appears in the URL
-    # (avoids token leakage in git error output, process listings, and logs).
-    # GIT_CONFIG_COUNT / KEY / VALUE is supported by git ≥ 2.32.
+    provider: str = os.environ["GIT_PROVIDER"].lower()
+
+    # Construct authenticated URL based on provider
+    # For GitLab: https://oauth2:<token>@host/path
+    # For GitHub: https://<token>@host/path
+    if provider == "gitlab":
+        # GitLab PAT auth: oauth2 is the username, token is the password
+        parts = repo_url.split("://", 1)
+        authenticated_url = f"{parts[0]}://oauth2:{token}@{parts[1]}"
+    elif provider == "github":
+        # GitHub PAT auth: token is the username, empty password
+        parts = repo_url.split("://", 1)
+        authenticated_url = f"{parts[0]}://{token}@{parts[1]}"
+    else:
+        raise ValueError(f"Unsupported GIT_PROVIDER: {provider}")
+
     clone_env = {
         **os.environ,
         "GIT_TERMINAL_PROMPT": "0",
-        "GIT_CONFIG_COUNT": "1",
-        "GIT_CONFIG_KEY_0": "http.extraHeader",
-        "GIT_CONFIG_VALUE_0": f"Authorization: Bearer {token}",
     }
-    git.Repo.clone_from(repo_url, str(docs_path), env=clone_env)
+    git.Repo.clone_from(authenticated_url, str(docs_path), env=clone_env)
 
 
 @asynccontextmanager
@@ -93,6 +103,10 @@ def create_app() -> FastAPI:
     app.include_router(chat_router)
     app.include_router(edit_router)
     app.include_router(commit_router)
+
+    @app.get("/health")
+    async def health_check() -> JSONResponse:
+        return JSONResponse(status_code=200, content={"status": "ok"})
 
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:

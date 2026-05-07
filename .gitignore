@@ -28,6 +28,7 @@ Thumbs.db
 # Local env files
 .env
 .env.*
+!.env.example
 
 # Node modules (if frontend is added)
 node_modules/

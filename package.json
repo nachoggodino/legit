@@ -1,0 +1,19 @@
+{
+  "name": "copisaurus",
+  "version": "1.0.0",
+  "description": "AI-powered documentation wiki backed by Git",
+  "private": true,
+  "scripts": {
+    "build": "docker compose build",
+    "start": "docker compose up -d",
+    "stop": "docker compose down",
+    "restart": "docker compose restart backend",
+    "logs": "docker compose logs -f backend",
+    "status": "docker compose ps",
+    "test": "docker compose run --rm backend python -m pytest",
+    "test:verbose": "docker compose run --rm backend python -m pytest -v",
+    "test:local": "cd backend && python -m pytest",
+    "clean": "docker compose down --volumes --remove-orphans",
+    "shell": "docker compose exec backend /bin/bash"
+  }
+}
