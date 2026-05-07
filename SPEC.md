@@ -16,11 +16,16 @@ Documentation/wiki platform for an AI research project, based on Docusaurus, wit
 | Layer | Technology |
 |---|---|
 | Frontend | Docusaurus 3.x (React + MDX) |
+| Markdown rendering | Docosaurus MDX (build-time); `react-markdown` (runtime live preview) |
 | Backend | FastAPI (Python 3.11+) |
 | Container | Docker + Docker Compose |
 | Version control | GitLab or GitHub (abstracted via `GitProvider`) |
 | AI model | OpenAI-compatible (URL and API key configurable via env vars) |
 | Initial deployment | Local (Docker on developer machine) |
+
+**Rendering clarification:**
+- **Build-time:** Docosaurus processes `.md` and `.mdx` files at build time using its built-in MDX compiler and theme components.
+- **Runtime preview:** The edit modal's `MarkdownPreview` component uses `react-markdown` to render user-edited Markdown strings dynamically in the browser (not supported by Docosaurus's build-time MDX pipeline).
 
 ---
 

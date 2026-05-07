@@ -1,0 +1,35 @@
+/* Fixed overlay injected next to the original Docusaurus navbar */
+.navbarAddons {
+  position: fixed;
+  top: 0;
+  right: 1rem;
+  height: var(--ifm-navbar-height, 60px);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 200;
+  pointer-events: none;
+}
+
+.navbarAddonItem {
+  pointer-events: auto;
+}
+
+.repoLink {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.82rem;
+  color: var(--ifm-navbar-link-color);
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+.repoLink:hover {
+  color: var(--ifm-navbar-link-hover-color);
+  text-decoration: none;
+}
+
+.repoLinkLabel {
+  text-transform: capitalize;
+}

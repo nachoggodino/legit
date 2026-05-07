@@ -1,0 +1,85 @@
+.container {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ifm-font-color-base);
+  white-space: nowrap;
+}
+
+.input {
+  flex: 1;
+  min-width: 8rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-font-color-base);
+}
+
+.input:disabled {
+  opacity: 0.6;
+}
+
+.commitButton {
+  height: 2rem;
+  padding: 0 1rem;
+  border: none;
+  border-radius: 4px;
+  background: var(--ifm-color-primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+
+.commitButton:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.commitButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.statusList {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+
+.statusItem {
+  font-size: 0.82rem;
+  color: var(--ifm-color-emphasis-600);
+  padding: 0.1rem 0;
+}
+
+.statusItem::before {
+  content: "· ";
+}
+
+.success {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--ifm-color-success-dark, #1a8870);
+}
+
+.error {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: var(--ifm-color-danger, #d9534f);
+}
