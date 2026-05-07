@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -8,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from routers.files import files_router
 from services import git as git_service
 from services.index import load_index
 
@@ -68,7 +70,7 @@ def _clone_repo_if_needed() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     _validate_env_vars()
-    _clone_repo_if_needed()
+    await asyncio.to_thread(_clone_repo_if_needed)
     git_service.get_git_provider()
     load_index()
     yield
@@ -83,6 +85,8 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    app.include_router(files_router)
 
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
