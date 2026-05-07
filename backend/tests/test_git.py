@@ -1,5 +1,6 @@
 import os
 import time
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -116,7 +117,7 @@ class TestGitLabProvider:
                 message="Add new doc",
             )
 
-        payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
+        payload = mock_post.call_args.kwargs["json"]
         assert payload["branch"] == "feature"
         assert payload["commit_message"] == "Add new doc"
         assert payload["actions"][0]["file_path"] == "new.md"
@@ -140,7 +141,7 @@ class TestGitLabProvider:
                 message="Update",
             )
 
-        payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
+        payload = mock_post.call_args.kwargs["json"]
         assert payload["actions"][0]["action"] == "update"
 
     @pytest.mark.asyncio
@@ -161,7 +162,7 @@ class TestGitLabProvider:
                 message="Create",
             )
 
-        payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
+        payload = mock_post.call_args.kwargs["json"]
         assert payload["actions"][0]["action"] == "create"
 
 
@@ -245,11 +246,13 @@ class TestGitHubProvider:
 
 
 class TestGetGitProvider:
-    def setup_method(self) -> None:
-        _reset_provider()
-
-    def teardown_method(self) -> None:
-        _reset_provider()
+    @pytest.fixture(autouse=True)
+    def reset_provider(self) -> Generator[None, None, None]:
+        git_module._provider = None
+        git_module._last_pull_at = 0.0
+        yield
+        git_module._provider = None
+        git_module._last_pull_at = 0.0
 
     def test_returns_gitlab_provider(self, gitlab_env: None) -> None:
         provider = get_git_provider()
@@ -280,8 +283,13 @@ class TestGetGitProvider:
 
 
 class TestMaybePull:
-    def setup_method(self) -> None:
-        _reset_provider()
+    @pytest.fixture(autouse=True)
+    def reset_provider(self) -> Generator[None, None, None]:
+        git_module._provider = None
+        git_module._last_pull_at = 0.0
+        yield
+        git_module._provider = None
+        git_module._last_pull_at = 0.0
 
     @pytest.mark.asyncio
     async def test_skips_pull_within_interval(

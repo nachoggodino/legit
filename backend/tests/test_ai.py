@@ -55,13 +55,14 @@ class TestGetMaxContextTokens:
 # ---------------------------------------------------------------------------
 
 
-class TestCallLlmFull:
-    def _set_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        for key, value in BASE_ENV.items():
-            monkeypatch.setenv(key, value)
+@pytest.fixture()
+def ai_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key, value in BASE_ENV.items():
+        monkeypatch.setenv(key, value)
 
-    def test_posts_to_correct_url(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+
+class TestCallLlmFull:
+    def test_posts_to_correct_url(self, ai_env: None) -> None:
         mock_resp = MagicMock()
         mock_resp.json.return_value = make_llm_response("answer")
         mock_resp.raise_for_status = MagicMock()
@@ -69,12 +70,10 @@ class TestCallLlmFull:
         with patch("services.ai.requests.post", return_value=mock_resp) as mock_post:
             call_llm_full(messages=[{"role": "user", "content": "hi"}])
 
-        url_arg: str = mock_post.call_args.args[0] if mock_post.call_args.args else \
-            mock_post.call_args.kwargs["url"]
+        url_arg: str = mock_post.call_args.args[0]
         assert url_arg.endswith("/chat/completions")
 
-    def test_sends_messages_and_model(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_sends_messages_and_model(self, ai_env: None) -> None:
         mock_resp = MagicMock()
         mock_resp.json.return_value = make_llm_response("answer")
         mock_resp.raise_for_status = MagicMock()
@@ -83,13 +82,11 @@ class TestCallLlmFull:
         with patch("services.ai.requests.post", return_value=mock_resp) as mock_post:
             call_llm_full(messages=messages)
 
-        payload: dict[str, Any] = mock_post.call_args.kwargs.get("json") or \
-            mock_post.call_args[1]["json"]
+        payload: dict[str, Any] = mock_post.call_args.kwargs["json"]
         assert payload["messages"] == messages
         assert payload["model"] == "gpt-4o"
 
-    def test_sends_tools_when_provided(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_sends_tools_when_provided(self, ai_env: None) -> None:
         mock_resp = MagicMock()
         mock_resp.json.return_value = make_llm_response("answer")
         mock_resp.raise_for_status = MagicMock()
@@ -98,11 +95,10 @@ class TestCallLlmFull:
         with patch("services.ai.requests.post", return_value=mock_resp) as mock_post:
             call_llm_full(messages=[{"role": "user", "content": "hi"}], tools=tools)
 
-        payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
+        payload = mock_post.call_args.kwargs["json"]
         assert payload["tools"] == tools
 
-    def test_omits_tools_when_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_omits_tools_when_none(self, ai_env: None) -> None:
         mock_resp = MagicMock()
         mock_resp.json.return_value = make_llm_response("answer")
         mock_resp.raise_for_status = MagicMock()
@@ -110,11 +106,10 @@ class TestCallLlmFull:
         with patch("services.ai.requests.post", return_value=mock_resp) as mock_post:
             call_llm_full(messages=[{"role": "user", "content": "hi"}], tools=None)
 
-        payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
+        payload = mock_post.call_args.kwargs["json"]
         assert "tools" not in payload
 
-    def test_sets_bearer_auth_header(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_sets_bearer_auth_header(self, ai_env: None) -> None:
         mock_resp = MagicMock()
         mock_resp.json.return_value = make_llm_response("ok")
         mock_resp.raise_for_status = MagicMock()
@@ -122,12 +117,10 @@ class TestCallLlmFull:
         with patch("services.ai.requests.post", return_value=mock_resp) as mock_post:
             call_llm_full(messages=[{"role": "user", "content": "hi"}])
 
-        headers: dict[str, str] = mock_post.call_args.kwargs.get("headers") or \
-            mock_post.call_args[1]["headers"]
+        headers: dict[str, str] = mock_post.call_args.kwargs["headers"]
         assert headers["Authorization"] == "Bearer sk-test"
 
-    def test_returns_response_dict(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_returns_response_dict(self, ai_env: None) -> None:
         expected = make_llm_response("the answer")
         mock_resp = MagicMock()
         mock_resp.json.return_value = expected
@@ -138,8 +131,7 @@ class TestCallLlmFull:
 
         assert result == expected
 
-    def test_raises_on_http_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_raises_on_http_error(self, ai_env: None) -> None:
         mock_resp = MagicMock()
         mock_resp.raise_for_status.side_effect = Exception("HTTP 500")
 
@@ -166,12 +158,7 @@ def _make_sse_lines(tokens: list[str]) -> list[bytes]:
 
 
 class TestCallLlmStream:
-    def _set_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        for key, value in BASE_ENV.items():
-            monkeypatch.setenv(key, value)
-
-    def test_yields_token_strings(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_yields_token_strings(self, ai_env: None) -> None:
         sse_lines = _make_sse_lines(["Hello", " world", "!"])
 
         mock_resp = MagicMock()
@@ -185,8 +172,7 @@ class TestCallLlmStream:
 
         assert tokens == ["Hello", " world", "!"]
 
-    def test_stops_at_done_sentinel(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_stops_at_done_sentinel(self, ai_env: None) -> None:
         # Include lines after [DONE] that should be ignored
         sse_lines = _make_sse_lines(["tok"]) + [b"data: {\"choices\":[{\"delta\":{\"content\":\"extra\"}}]}"]
 
@@ -201,8 +187,7 @@ class TestCallLlmStream:
 
         assert "extra" not in tokens
 
-    def test_skips_empty_lines(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_skips_empty_lines(self, ai_env: None) -> None:
         sse_lines = [b"", b"data: {\"choices\":[{\"delta\":{\"content\":\"A\"}}]}", b"data: [DONE]"]
 
         mock_resp = MagicMock()
@@ -216,8 +201,7 @@ class TestCallLlmStream:
 
         assert tokens == ["A"]
 
-    def test_skips_lines_without_data_prefix(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_skips_lines_without_data_prefix(self, ai_env: None) -> None:
         sse_lines = [
             b"event: ping",
             b"data: {\"choices\":[{\"delta\":{\"content\":\"B\"}}]}",
@@ -235,8 +219,7 @@ class TestCallLlmStream:
 
         assert tokens == ["B"]
 
-    def test_sets_stream_true_in_payload(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_sets_stream_true_in_payload(self, ai_env: None) -> None:
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
         mock_resp.iter_lines.return_value = iter([b"data: [DONE]"])
@@ -246,11 +229,10 @@ class TestCallLlmStream:
         with patch("services.ai.requests.post", return_value=mock_resp) as mock_post:
             list(call_llm_stream(messages=[{"role": "user", "content": "hi"}]))
 
-        payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
+        payload = mock_post.call_args.kwargs["json"]
         assert payload["stream"] is True
 
-    def test_skips_malformed_json_lines(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._set_env(monkeypatch)
+    def test_skips_malformed_json_lines(self, ai_env: None) -> None:
         # One malformed data line between valid ones
         sse_lines = [
             b"data: {malformed json}",

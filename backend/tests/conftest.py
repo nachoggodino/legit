@@ -1,8 +1,13 @@
+import json
 import os
+from collections.abc import Generator
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi.testclient import TestClient
+
+from main import create_app
 
 # ---------------------------------------------------------------------------
 # Environment variable helpers
@@ -79,3 +84,37 @@ def make_llm_response(content: str) -> dict[str, Any]:
         ],
         "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     }
+
+
+def parse_sse_events(text: str) -> list[dict[str, Any]]:
+    """Parse an SSE response body into a list of {event, data} dicts."""
+    events: list[dict[str, Any]] = []
+    current: dict[str, Any] = {}
+    for line in text.splitlines():
+        if line.startswith("event:"):
+            current["event"] = line[len("event:"):].strip()
+        elif line.startswith("data:"):
+            current["data"] = json.loads(line[len("data:"):].strip())
+        elif not line and current:
+            events.append(current)
+            current = {}
+    if current:
+        events.append(current)
+    return events
+
+
+# ---------------------------------------------------------------------------
+# Shared test client fixture
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def app_client(gitlab_env: None) -> Generator[TestClient, None, None]:
+    """Yield a TestClient with common startup patches applied."""
+    with (
+        patch("main._clone_repo_if_needed"),
+        patch("services.git.get_git_provider"),
+        patch("services.index.load_index"),
+    ):
+        with TestClient(create_app()) as client:
+            yield client

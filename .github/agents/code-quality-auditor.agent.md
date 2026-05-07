@@ -1,7 +1,7 @@
 ---
 description: "Use when: scanning full codebase for code quality issues, duplicated logic, boilerplate, verbose comments, unnecessary complexity, and code smell patterns. Returns structured Markdown report."
 name: "Code Quality Auditor"
-tools: [read, search]
+tools: [read, edit, search]
 user-invocable: true
 argument-hint: "Optionally specify focus areas (e.g., 'backend', 'frontend', 'tests', or leave blank for full scan)"
 ---

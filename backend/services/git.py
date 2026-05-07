@@ -10,25 +10,28 @@ import requests
 
 PULL_INTERVAL_SECONDS: int = 60
 
-_last_pull_at: float = 0.0
-_provider: "GitProvider | None" = None
-
 
 class GitProvider(ABC):
     """Abstract base class for Git provider implementations."""
 
+    def __init__(self) -> None:
+        self._docs_path = Path(os.environ["DOCS_LOCAL_PATH"])
+
+    @property
+    def _repo_url(self) -> str:
+        return os.environ["GIT_REPO_URL"].rstrip("/")
+
     def _write_files_locally(self, files: list[dict[str, Any]]) -> None:
         """Write committed files to the local clone so reads stay in sync."""
-        docs_path = Path(os.environ["DOCS_LOCAL_PATH"])
         for f in files:
-            local_path = docs_path / f["path"]
+            local_path = self._docs_path / f["path"]
             local_path.parent.mkdir(parents=True, exist_ok=True)
             local_path.write_text(f["content"], encoding="utf-8")
 
-    @abstractmethod
     async def get_file(self, path: str) -> str:
         """Return the raw content of a file from the local clone."""
-        ...
+        full_path = self._docs_path / path
+        return await asyncio.to_thread(full_path.read_text, encoding="utf-8")
 
     @abstractmethod
     async def commit_files(
@@ -40,14 +43,10 @@ class GitProvider(ABC):
 
 class GitLabProvider(GitProvider):
     def __init__(self) -> None:
+        super().__init__()
         self._url = os.environ["GITLAB_URL"].rstrip("/")
         self._project_id = os.environ["GITLAB_PROJECT_ID"]
         self._token = os.environ["GIT_TOKEN"]
-        self._docs_path = Path(os.environ["DOCS_LOCAL_PATH"])
-
-    async def get_file(self, path: str) -> str:
-        full_path = self._docs_path / path
-        return await asyncio.to_thread(full_path.read_text, encoding="utf-8")
 
     async def commit_files(
         self, files: list[dict[str, Any]], branch: str, message: str
@@ -85,16 +84,15 @@ class GitLabProvider(GitProvider):
 
         await asyncio.to_thread(self._write_files_locally, files)
 
-        repo_url = os.environ["GIT_REPO_URL"].rstrip("/")
-        return f"{repo_url}/-/commit/{commit_id}"
+        return f"{self._repo_url}/-/commit/{commit_id}"
 
 
 class GitHubProvider(GitProvider):
     def __init__(self) -> None:
+        super().__init__()
         self._owner = os.environ["GITHUB_OWNER"]
         self._repo = os.environ["GITHUB_REPO"]
         self._token = os.environ["GIT_TOKEN"]
-        self._docs_path = Path(os.environ["DOCS_LOCAL_PATH"])
 
     @property
     def _headers(self) -> dict[str, str]:
@@ -107,10 +105,6 @@ class GitHubProvider(GitProvider):
     @property
     def _base_url(self) -> str:
         return f"https://api.github.com/repos/{self._owner}/{self._repo}"
-
-    async def get_file(self, path: str) -> str:
-        full_path = self._docs_path / path
-        return await asyncio.to_thread(full_path.read_text, encoding="utf-8")
 
     async def commit_files(
         self, files: list[dict[str, Any]], branch: str, message: str
@@ -185,8 +179,11 @@ class GitHubProvider(GitProvider):
 
         await asyncio.to_thread(self._write_files_locally, files)
 
-        repo_url = os.environ["GIT_REPO_URL"].rstrip("/")
-        return f"{repo_url}/commit/{new_commit_sha}"
+        return f"{self._repo_url}/commit/{new_commit_sha}"
+
+
+_last_pull_at: float = 0.0
+_provider: GitProvider | None = None
 
 
 def get_git_provider() -> GitProvider:
@@ -213,6 +210,9 @@ async def maybe_pull() -> None:
     if now - _last_pull_at < PULL_INTERVAL_SECONDS:
         return
 
+    # Set eagerly before await to prevent concurrent pulls (TOCTOU race fix).
+    _last_pull_at = time.monotonic()
+
     docs_path = Path(os.environ["DOCS_LOCAL_PATH"])
 
     def _do_pull() -> None:
@@ -220,4 +220,3 @@ async def maybe_pull() -> None:
         repo.remotes.origin.pull()
 
     await asyncio.to_thread(_do_pull)
-    _last_pull_at = time.monotonic()

@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from models.chat import ChatRequest
+from routers.utils import sse_event
 from services.ai import call_llm_full, call_llm_stream, estimate_tokens, get_max_context_tokens
 from services.git import get_git_provider, maybe_pull
 from services.index import serialise_index
@@ -30,7 +31,7 @@ _GET_FILE_TOOL: dict[str, Any] = {
     },
 }
 
-# System prompt matches SPEC 9.2
+# Instructs the LLM to search the index for relevant files before answering.
 _SYSTEM_PROMPT_TEMPLATE: str = (
     "You are an expert assistant on the AI research project documented in this wiki.\n"
     "You have access to an index of all available documents.\n"
@@ -49,11 +50,6 @@ _CONTEXT_BUDGET_WARNING: str = (
     "IMPORTANT: The context is nearly full. Do not request any more files. "
     "Answer with the information already retrieved.\n\n"
 )
-
-
-def sse_event(event: str, data: dict[str, Any]) -> str:
-    """Format a single SSE frame."""
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
 def _build_system_prompt(index_json: str, warn: bool) -> str:
@@ -84,7 +80,7 @@ async def _chat_generator(query: str) -> AsyncGenerator[str, None]:
         for _ in range(_MAX_TOOL_ITERATIONS):
             response: dict[str, Any] = await loop.run_in_executor(
                 None,
-                lambda: call_llm_full(messages, tools=[_GET_FILE_TOOL]),  # noqa: B023
+                lambda: call_llm_full(messages, tools=[_GET_FILE_TOOL]),  # noqa: B023 — messages is not a loop variable; lambda closure is intentional
             )
 
             assistant_message: dict[str, Any] = response["choices"][0]["message"]

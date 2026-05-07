@@ -1,4 +1,5 @@
 import json
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,10 @@ from services.index import (
 # ---------------------------------------------------------------------------
 
 
-def _reset_index() -> None:
+@pytest.fixture(autouse=True)
+def reset_index() -> Generator[None, None, None]:
+    index_module._INDEX = []
+    yield
     index_module._INDEX = []
 
 
@@ -34,9 +38,6 @@ def _write_index(tmp_path: Path, entries: list[dict[str, Any]]) -> None:
 
 
 class TestLoadIndex:
-    def setup_method(self) -> None:
-        _reset_index()
-
     def test_loads_entries_from_file(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -73,9 +74,6 @@ class TestLoadIndex:
 
 
 class TestGetIndex:
-    def setup_method(self) -> None:
-        _reset_index()
-
     def test_returns_copy(self) -> None:
         index_module._INDEX = [{"path": "a.md", "title": "A", "summary": "", "updated": "2026-01-01"}]
         result = get_index()
@@ -98,9 +96,6 @@ class TestGetIndex:
 
 
 class TestUpdateIndexEntry:
-    def setup_method(self) -> None:
-        _reset_index()
-
     def test_creates_new_entry_when_path_not_found(self) -> None:
         update_index_entry("docs/new.md", title="New Page", summary="A new page")
         assert len(index_module._INDEX) == 1
@@ -162,9 +157,6 @@ class TestUpdateIndexEntry:
 
 
 class TestSerialiseIndex:
-    def setup_method(self) -> None:
-        _reset_index()
-
     def test_returns_json_string(self) -> None:
         index_module._INDEX = [
             {"path": "docs/a.md", "title": "A", "summary": "s", "updated": "2026-01-01"}

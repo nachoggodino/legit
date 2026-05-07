@@ -7,11 +7,12 @@ from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
 from models.edit import EditRequest
-from services.ai import call_llm_full, estimate_tokens, get_max_context_tokens
+from routers.utils import sse_event
+from services.ai import call_llm_full, check_context_budget
 
 edit_router = APIRouter()
 
-# System prompt from SPEC 9.3
+# Instructs the LLM to return only the modified Markdown document with no surrounding explanation.
 _SYSTEM_PROMPT: str = (
     "You are a technical writing assistant specialized in AI research documentation.\n"
     "The user will provide a Markdown document and an editing instruction.\n"
@@ -29,11 +30,6 @@ _STATUS_MESSAGES: list[str] = [
 ]
 
 
-def sse_event(event: str, data: dict[str, Any]) -> str:
-    """Format a single SSE frame."""
-    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
-
-
 async def _edit_generator(
     path: str,
     content: str,
@@ -41,17 +37,16 @@ async def _edit_generator(
 ) -> AsyncGenerator[str, None]:
     try:
         # Check context budget
-        estimated_tokens = estimate_tokens(content) + estimate_tokens(instruction)
-        max_tokens = get_max_context_tokens()
-        if estimated_tokens > max_tokens:
-            yield sse_event("error", {"message": f"Document exceeds context limit ({estimated_tokens} > {max_tokens} tokens)"})
+        error = check_context_budget(content, instruction)
+        if error:
+            yield sse_event("error", {"message": error})
             return
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": _SYSTEM_PROMPT},
             {
                 "role": "user",
-                "content": f"INSTRUCTION:\n{instruction}\n\nDOCUMENT:\n{content}",
+                "content": f"FILE: {path}\n\nINSTRUCTION:\n{instruction}\n\nDOCUMENT:\n{content}",
             },
         ]
 

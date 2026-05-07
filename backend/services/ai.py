@@ -13,16 +13,33 @@ def estimate_tokens(text: str) -> int:
     return len(text) // 5
 
 
+def _get_completions_url() -> str:
+    return f"{os.environ['AI_BASE_URL'].rstrip('/')}/chat/completions"
+
+
+def _build_headers() -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {os.environ['AI_API_KEY']}",
+        "Content-Type": "application/json",
+    }
+
+
+def check_context_budget(*texts: str) -> str | None:
+    """Return an error message if combined token estimate exceeds budget, else None."""
+    estimated_tokens = sum(estimate_tokens(t) for t in texts)
+    max_tokens = get_max_context_tokens()
+    if estimated_tokens > max_tokens:
+        return f"Document exceeds context limit ({estimated_tokens} > {max_tokens} tokens)"
+    return None
+
+
 def call_llm_full(
     messages: list[dict[str, Any]],
     tools: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Make a blocking chat-completions call and return the full response dict."""
-    url = f"{os.environ['AI_BASE_URL'].rstrip('/')}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {os.environ['AI_API_KEY']}",
-        "Content-Type": "application/json",
-    }
+    url = _get_completions_url()
+    headers = _build_headers()
     payload: dict[str, Any] = {
         "model": os.environ["AI_MODEL"],
         "messages": messages,
@@ -37,11 +54,8 @@ def call_llm_full(
 
 def call_llm_stream(messages: list[dict[str, Any]]) -> Iterator[str]:
     """Make a blocking streaming chat-completions call, yielding text tokens."""
-    url = f"{os.environ['AI_BASE_URL'].rstrip('/')}/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {os.environ['AI_API_KEY']}",
-        "Content-Type": "application/json",
-    }
+    url = _get_completions_url()
+    headers = _build_headers()
     payload: dict[str, Any] = {
         "model": os.environ["AI_MODEL"],
         "messages": messages,

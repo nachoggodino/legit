@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from main import create_app
-from tests.conftest import BASE_ENV
+from tests.conftest import BASE_ENV, parse_sse_events
 
 
 # ---------------------------------------------------------------------------
@@ -62,24 +62,6 @@ def make_no_tool_call_response() -> dict[str, Any]:
     }
 
 
-def parse_sse_events(text: str) -> list[dict[str, Any]]:
-    """Parse an SSE response body (string) into a list of {event, data} dicts."""
-    events: list[dict[str, Any]] = []
-    current: dict[str, Any] = {}
-    for line in text.splitlines():
-        if line.startswith("event:"):
-            current["event"] = line[len("event:") :].strip()
-        elif line.startswith("data:"):
-            current["data"] = json.loads(line[len("data:") :].strip())
-        elif not line and current:
-            events.append(current)
-            current = {}
-    if current:
-        events.append(current)
-    return events
-
-
-
 # ---------------------------------------------------------------------------
 # Tests: no tool calls
 # ---------------------------------------------------------------------------
@@ -88,23 +70,19 @@ def parse_sse_events(text: str) -> list[dict[str, Any]]:
 class TestChatNoToolCalls:
     def test_streams_tokens_and_done(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         mock_call_llm_full = MagicMock(return_value=make_no_tool_call_response())
         mock_call_llm_stream = MagicMock(return_value=iter(["Hello", " world"]))
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
             patch("routers.chat.call_llm_stream", mock_call_llm_stream),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "test"})
+            response = app_client.post("/chat", json={"query": "test"})
 
         assert response.status_code == 200
         assert "text/event-stream" in response.headers["content-type"]
@@ -118,7 +96,7 @@ class TestChatNoToolCalls:
 
     def test_sends_correct_messages_to_llm(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         captured: list[Any] = []
@@ -128,16 +106,12 @@ class TestChatNoToolCalls:
             return make_no_tool_call_response()
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", side_effect=capture_full),
             patch("routers.chat.call_llm_stream", return_value=iter([])),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                client.post("/chat", json={"query": "what is X?"})
+            app_client.post("/chat", json={"query": "what is X?"})
 
         assert len(captured) == 1
         messages = captured[0]
@@ -154,7 +128,7 @@ class TestChatNoToolCalls:
 class TestChatWithToolCalls:
     def test_emits_reading_file_event_and_fetches_content(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         mock_git_provider.get_file = AsyncMock(return_value="# Benchmarks\nContent here.")
@@ -167,18 +141,12 @@ class TestChatWithToolCalls:
         mock_call_llm_stream = MagicMock(return_value=iter(["Based on the docs..."]))
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
             patch("routers.chat.call_llm_stream", mock_call_llm_stream),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post(
-                    "/chat", json={"query": "benchmarks?"}
-                )
+            response = app_client.post("/chat", json={"query": "benchmarks?"})
 
         events = parse_sse_events(response.text)
         event_types = [e["event"] for e in events]
@@ -193,7 +161,7 @@ class TestChatWithToolCalls:
 
     def test_file_content_appended_to_messages(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         file_content = "# Doc\nSome content."
@@ -213,16 +181,12 @@ class TestChatWithToolCalls:
         )
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
             patch("routers.chat.call_llm_stream", side_effect=capture_stream),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                client.post("/chat", json={"query": "q"})
+            app_client.post("/chat", json={"query": "q"})
 
         assert len(stream_messages) == 1
         final_messages: list[dict[str, Any]] = stream_messages[0]
@@ -240,7 +204,7 @@ class TestChatWithToolCalls:
 class TestChatMultipleFileReads:
     def test_reads_up_to_max_iterations(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         """Five tool-call rounds → 5 reading_file events, then stream answer."""
@@ -256,16 +220,12 @@ class TestChatMultipleFileReads:
         mock_call_llm_stream = MagicMock(return_value=iter(["done answer"]))
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
             patch("routers.chat.call_llm_stream", mock_call_llm_stream),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "all docs"})
+            response = app_client.post("/chat", json={"query": "all docs"})
 
         events = parse_sse_events(response.text)
         reading_events = [e for e in events if e["event"] == "reading_file"]
@@ -276,7 +236,7 @@ class TestChatMultipleFileReads:
 
     def test_multiple_files_result_in_sequential_reading_events(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         mock_git_provider.get_file = AsyncMock(return_value="content")
@@ -289,16 +249,12 @@ class TestChatMultipleFileReads:
         )
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
             patch("routers.chat.call_llm_stream", return_value=iter(["answer"])),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         reading_paths = [
@@ -395,7 +351,7 @@ class TestChatContextBudgetWarning:
 
     def test_no_warning_when_within_budget(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         captured: list[Any] = []
@@ -405,17 +361,13 @@ class TestChatContextBudgetWarning:
             return make_no_tool_call_response()
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", side_effect=capture_full),
             patch("routers.chat.call_llm_stream", return_value=iter([])),
             patch("routers.chat.serialise_index", return_value="[]"),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                client.post("/chat", json={"query": "q"})
+            app_client.post("/chat", json={"query": "q"})
 
         system_prompt: str = captured[0][0]["content"]
         assert "IMPORTANT" not in system_prompt
@@ -429,7 +381,7 @@ class TestChatContextBudgetWarning:
 class TestChatErrorHandling:
     def test_error_event_on_file_not_found(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         mock_git_provider.get_file = AsyncMock(
@@ -440,17 +392,11 @@ class TestChatErrorHandling:
         )
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post(
-                    "/chat", json={"query": "q"}
-                )
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         assert response.status_code == 200
@@ -460,21 +406,17 @@ class TestChatErrorHandling:
 
     def test_error_event_on_llm_failure(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         mock_call_llm_full = MagicMock(side_effect=RuntimeError("LLM unreachable"))
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         error_events = [e for e in events if e["event"] == "error"]
@@ -483,7 +425,7 @@ class TestChatErrorHandling:
 
     def test_error_event_on_invalid_tool_arguments(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         bad_response: dict[str, Any] = {
@@ -512,15 +454,11 @@ class TestChatErrorHandling:
         mock_call_llm_full = MagicMock(return_value=bad_response)
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         error_events = [e for e in events if e["event"] == "error"]
@@ -529,22 +467,18 @@ class TestChatErrorHandling:
 
     def test_error_event_on_maybe_pull_failure(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch(
                 "routers.chat.maybe_pull",
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("pull failed"),
             ),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         error_events = [e for e in events if e["event"] == "error"]
@@ -553,7 +487,7 @@ class TestChatErrorHandling:
 
     def test_no_done_event_after_error(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         mock_git_provider.get_file = AsyncMock(side_effect=OSError("disk error"))
@@ -562,15 +496,11 @@ class TestChatErrorHandling:
         )
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         event_types = [e["event"] for e in events]
@@ -586,40 +516,32 @@ class TestChatErrorHandling:
 class TestChatSSEFormat:
     def test_response_content_type_is_event_stream(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", return_value=make_no_tool_call_response()),
             patch("routers.chat.call_llm_stream", return_value=iter([])),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         assert response.status_code == 200
         assert "text/event-stream" in response.headers["content-type"]
 
     def test_token_events_carry_text_field(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", return_value=make_no_tool_call_response()),
             patch("routers.chat.call_llm_stream", return_value=iter(["tok1", "tok2"])),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         token_events = [e for e in events if e["event"] == "token"]
@@ -628,20 +550,16 @@ class TestChatSSEFormat:
 
     def test_done_event_has_empty_data(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", return_value=make_no_tool_call_response()),
             patch("routers.chat.call_llm_stream", return_value=iter([])),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         done_events = [e for e in events if e["event"] == "done"]
@@ -650,7 +568,7 @@ class TestChatSSEFormat:
 
     def test_event_ordering_reading_file_before_token_before_done(
         self,
-        gitlab_env: None,
+        app_client: TestClient,
         mock_git_provider: MagicMock,
     ) -> None:
         mock_git_provider.get_file = AsyncMock(return_value="content")
@@ -662,16 +580,12 @@ class TestChatSSEFormat:
         )
 
         with (
-            patch("main._clone_repo_if_needed"),
             patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
             patch("routers.chat.maybe_pull", new_callable=AsyncMock),
             patch("routers.chat.call_llm_full", mock_call_llm_full),
             patch("routers.chat.call_llm_stream", return_value=iter(["answer"])),
         ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={"query": "q"})
+            response = app_client.post("/chat", json={"query": "q"})
 
         events = parse_sse_events(response.text)
         event_types = [e["event"] for e in events]
@@ -680,16 +594,7 @@ class TestChatSSEFormat:
 
     def test_missing_query_returns_422(
         self,
-        gitlab_env: None,
-        mock_git_provider: MagicMock,
+        app_client: TestClient,
     ) -> None:
-        with (
-            patch("main._clone_repo_if_needed"),
-            patch("routers.chat.get_git_provider", return_value=mock_git_provider),
-            patch("services.index.load_index"),
-        ):
-            app = create_app()
-            with TestClient(app) as client:
-                response = client.post("/chat", json={})
-
+        response = app_client.post("/chat", json={})
         assert response.status_code == 422
