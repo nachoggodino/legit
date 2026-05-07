@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import services.ai as ai_module
 from services.ai import (
     call_llm_full,
     call_llm_stream,
@@ -249,3 +248,24 @@ class TestCallLlmStream:
 
         payload = mock_post.call_args.kwargs.get("json") or mock_post.call_args[1]["json"]
         assert payload["stream"] is True
+
+    def test_skips_malformed_json_lines(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self._set_env(monkeypatch)
+        # One malformed data line between valid ones
+        sse_lines = [
+            b"data: {malformed json}",
+            b'data: {"choices":[{"delta":{"content":"good"}}]}',
+            b"data: [DONE]",
+        ]
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.iter_lines.return_value = iter(sse_lines)
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+
+        with patch("services.ai.requests.post", return_value=mock_resp):
+            tokens = list(call_llm_stream(messages=[{"role": "user", "content": "hi"}]))
+
+        # Malformed line is silently skipped; valid token is yielded
+        assert tokens == ["good"]

@@ -225,6 +225,19 @@ class TestGitHubProvider:
 
         assert url == "https://github.com/my-org/ai-research/commit/new-commit-sha"
 
+    @pytest.mark.asyncio
+    async def test_get_file_reads_local_clone(
+        self, github_env: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("DOCS_LOCAL_PATH", str(tmp_path))
+        doc_dir = tmp_path / "docs"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        (doc_dir / "readme.md").write_text("# GitHub Doc", encoding="utf-8")
+
+        provider = GitHubProvider()
+        content = await provider.get_file("docs/readme.md")
+        assert content == "# GitHub Doc"
+
 
 # ---------------------------------------------------------------------------
 # get_git_provider factory
