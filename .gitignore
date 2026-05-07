@@ -1,0 +1,59 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# VS Code settings
+.vscode/
+
+# Pytest cache
+.pytest_cache/
+
+# Test output
+*.log
+*.tmp
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Local env files
+.env
+.env.*
+
+# Node modules (if frontend is added)
+node_modules/
+
+# Build outputs
+/dist/
+/build/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Coverage
+htmlcov/
+.coverage
+.coverage.*
+
+# Editor swap files
+*~
+*.swp
+*.swo
+
+# Copilot/Chat artifacts
+.vscode-server/
+.vscode-test/
+
+# Python egg info
+*.egg-info/
+
+docker-compose.override.yml
