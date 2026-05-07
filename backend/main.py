@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from routers.chat import chat_router
 from routers.files import files_router
 from services import git as git_service
 from services.index import load_index
@@ -87,6 +88,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(files_router)
+    app.include_router(chat_router)
 
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc: Exception) -> JSONResponse:
