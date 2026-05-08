@@ -1,15 +1,15 @@
 .fab {
   position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
+  bottom: 5rem;
+  right: 5rem;
   z-index: 1000;
   height: 3rem;
   padding: 0 1.25rem;
   border-radius: 0.75rem;
-  border: none;
-  background: linear-gradient(135deg, #9333ea 0%, #ea580c 100%);
+  border: 2px solid #fff;
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--ifm-color-secondary) 100%);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3);
+  box-shadow: 0 4px 12px var(--ifm-color-primary-light);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -23,7 +23,7 @@
 
 .fab:hover {
   transform: scale(1.05) translateY(-2px);
-  box-shadow: 0 6px 20px rgba(147, 51, 234, 0.4);
+  box-shadow: 0 6px 20px var(--ifm-color-primary);
 }
 
 .fab:active {

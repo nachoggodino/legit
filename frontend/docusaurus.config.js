@@ -6,7 +6,7 @@
 const config = {
   title: "Copisaurus",
   tagline: "AI Research Wiki",
-  favicon: "img/favicon.ico",
+  favicon: "img/logo.png",
 
   url: "http://localhost:3000",
   baseUrl: "/",
@@ -64,6 +64,32 @@ const config = {
         respectPrefersColorScheme: true,
       },
     }),
+
+  plugins: [
+    /**
+     * Dev-server proxy: forwards /file, /chat, /edit, /commit, /health
+     * to the FastAPI backend so relative URLs work during `docusaurus start`.
+     * In production (Docker / nginx) the reverse-proxy handles routing instead.
+     */
+    function backendProxyPlugin() {
+      return {
+        name: "backend-proxy",
+        configureWebpack() {
+          return {
+            devServer: {
+              proxy: [
+                {
+                  context: ["/file", "/chat", "/edit", "/commit", "/health"],
+                  target: process.env.BACKEND_URL || "http://localhost:8021",
+                  changeOrigin: true,
+                },
+              ],
+            },
+          };
+        },
+      };
+    },
+  ],
 };
 
 module.exports = config;

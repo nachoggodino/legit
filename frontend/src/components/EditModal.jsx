@@ -4,6 +4,7 @@ import MarkdownPreview from "./MarkdownPreview";
 import CommitForm from "./CommitForm";
 import NavigationGuard from "./NavigationGuard";
 import StatusList from "./StatusList";
+import SparkleIcon from "./icons/SparkleIcon";
 import styles from "./EditModal.module.css";
 
 /**
@@ -39,10 +40,18 @@ export default function EditModal({
   // Commit UI toggle
   const [showCommit, setShowCommit] = useState(false);
 
+  // Autoscroll toggle
+  const [enableAutoScroll, setEnableAutoScroll] = useState(true);
+
   // Split-pane divider drag state
   const [leftWidth, setLeftWidth] = useState(50); // percentage
   const isDragging = useRef(false);
   const containerRef = useRef(null);
+
+  // Synchronized scroll refs
+  const editorRef = useRef(null);
+  const previewPanelRef = useRef(null);
+  const isSyncingRef = useRef(false);
 
   // Abort controller for in-flight edit request
   const abortRef = useRef(null);
@@ -53,7 +62,14 @@ export default function EditModal({
   }, [isEditing, onEditingChange]);
 
   // ---------------------------------------------------------------------------
-  // Fetch file content once on first open
+  // Reset fetch flag when filePath changes so we fetch the new file
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    hasFetchedRef.current = false;
+  }, [filePath]);
+
+  // ---------------------------------------------------------------------------
+  // Fetch file content once per filePath
   // ---------------------------------------------------------------------------
   useEffect(() => {
     if (!isOpen || !filePath || hasFetchedRef.current) return;
@@ -162,6 +178,71 @@ export default function EditModal({
   }, []);
 
   // ---------------------------------------------------------------------------
+  // Synchronized scroll between editor and preview panes
+  // ---------------------------------------------------------------------------
+  const handleEditorScroll = useCallback(() => {
+    if (!enableAutoScroll || isSyncingRef.current || !editorRef.current || !previewPanelRef.current) return;
+    
+    const editor = editorRef.current;
+    const preview = previewPanelRef.current;
+    
+    // Calculate scroll ratio (0 to 1)
+    const scrollableHeight = editor.scrollHeight - editor.clientHeight;
+    if (scrollableHeight === 0) return;
+    
+    const ratio = editor.scrollTop / scrollableHeight;
+    
+    // Sync preview pane
+    isSyncingRef.current = true;
+    const previewScrollableHeight = preview.scrollHeight - preview.clientHeight;
+    preview.scrollTop = ratio * previewScrollableHeight;
+    isSyncingRef.current = false;
+  }, [enableAutoScroll]);
+
+  const handlePreviewScroll = useCallback(() => {
+    if (!enableAutoScroll || isSyncingRef.current || !editorRef.current || !previewPanelRef.current) return;
+    
+    const editor = editorRef.current;
+    const preview = previewPanelRef.current;
+    
+    // Calculate scroll ratio (0 to 1)
+    const scrollableHeight = preview.scrollHeight - preview.clientHeight;
+    if (scrollableHeight === 0) return;
+    
+    const ratio = preview.scrollTop / scrollableHeight;
+    
+    // Sync editor pane
+    isSyncingRef.current = true;
+    const editorScrollableHeight = editor.scrollHeight - editor.clientHeight;
+    editor.scrollTop = ratio * editorScrollableHeight;
+    isSyncingRef.current = false;
+  }, [enableAutoScroll]);
+
+  useEffect(() => {
+    const editor = editorRef.current;
+    const preview = previewPanelRef.current;
+    
+    if (!editor || !preview) return;
+    
+    editor.addEventListener("scroll", handleEditorScroll);
+    preview.addEventListener("scroll", handlePreviewScroll);
+    
+    return () => {
+      editor.removeEventListener("scroll", handleEditorScroll);
+      preview.removeEventListener("scroll", handlePreviewScroll);
+    };
+  }, [handleEditorScroll, handlePreviewScroll]);
+
+  // ---------------------------------------------------------------------------
+  // Handle overlay click (close when clicking outside modal content)
+  // ---------------------------------------------------------------------------
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   if (!isOpen) return null;
@@ -173,129 +254,157 @@ export default function EditModal({
         isRequestActive={isEditing}
       />
 
-      <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Edit document">
-        {/* Header */}
-        <div className={styles.header}>
-          <span className={styles.filePath}>{filePath}</span>
-          <div className={styles.headerActions}>
-            {!showCommit && (
-              <button
-                className={styles.commitToggle}
-                onClick={() => setShowCommit(true)}
-                disabled={isEditing || isFetching}
-              >
-                Commit…
-              </button>
-            )}
-            <button
-              className={styles.closeButton}
-              onClick={onClose}
-              aria-label="Minimize edit modal"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        {/* Split pane */}
-        <div className={styles.splitPane} ref={containerRef}>
-          {/* Left: Editor */}
-          <div
-            className={styles.editorPanel}
-            style={{ width: `${leftWidth}%` }}
-          >
-            {isFetching && (
-              <p className={styles.loadingText}>Loading file…</p>
-            )}
-            {fetchError && (
-              <p className={styles.errorText} role="alert">{fetchError}</p>
-            )}
-            {!isFetching && !fetchError && (
-              <>
-                <label htmlFor="markdown-editor" className={styles.srOnly}>
-                  Markdown content
-                </label>
-                <textarea
-                  id="markdown-editor"
-                  className={styles.textarea}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  disabled={isEditing}
-                  spellCheck={false}
+      <div 
+        className={styles.overlay} 
+        role="dialog" 
+        aria-modal="true" 
+        aria-label="Edit document"
+        onClick={handleOverlayClick}
+      >
+        <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className={styles.header}>
+            <span className={styles.filePath}>{filePath}</span>
+            <div className={styles.headerActions}>
+              {/* Autoscroll toggle */}
+              <label className={styles.autoscrollToggle} title="Auto-scroll both panes together">
+                <input
+                  type="checkbox"
+                  checked={enableAutoScroll}
+                  onChange={(e) => setEnableAutoScroll(e.target.checked)}
+                  aria-label="Toggle autoscroll"
                 />
-              </>
-            )}
-
-            {/* AI instruction input */}
-            <div className={styles.instructionRow}>
-              <label htmlFor="edit-instruction" className={styles.srOnly}>
-                AI instruction
+                <span className={styles.toggleSlider} />
+                <span className={styles.toggleLabel}>Autoscroll</span>
               </label>
-              <input
-                id="edit-instruction"
-                type="text"
-                className={styles.instructionInput}
-                placeholder="Describe the change you want…"
-                value={instruction}
-                onChange={(e) => setInstruction(e.target.value)}
-                onKeyDown={handleInstructionKeyDown}
-                disabled={isEditing || isFetching}
-                aria-label="AI instruction"
-              />
+              {!showCommit && (
+                <button
+                  className={styles.commitToggle}
+                  onClick={() => setShowCommit(true)}
+                  disabled={isEditing || isFetching}
+                >
+                  Commit
+                </button>
+              )}
               <button
-                className={styles.sendButton}
-                onClick={handleEditSubmit}
-                disabled={isEditing || !instruction.trim() || isFetching}
-                aria-label="Apply AI edit"
+                className={styles.closeButton}
+                onClick={onClose}
+                aria-label="Minimize edit modal"
               >
-                {isEditing ? "…" : "→"}
+                ✕
               </button>
             </div>
-
-            {/* AI edit status messages */}
-            <StatusList
-              messages={editStatuses}
-              listClassName={styles.statusList}
-              itemClassName={styles.statusItem}
-            />
-
-            {editError && (
-              <p className={styles.errorText} role="alert">{editError}</p>
-            )}
-
-            {/* Commit form */}
-            {showCommit && (
-              <CommitForm
-                path={filePath}
-                content={content}
-                defaultBranch={defaultBranch}
-              />
-            )}
           </div>
 
-          {/* Divider */}
-          <div
-            className={styles.divider}
-            onMouseDown={handleDividerMouseDown}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowLeft") setLeftWidth((w) => Math.max(w - 5, 20));
-              if (e.key === "ArrowRight") setLeftWidth((w) => Math.min(w + 5, 80));
-            }}
-            role="separator"
-            aria-label="Resize panels"
-            aria-orientation="vertical"
-            aria-valuenow={Math.round(leftWidth)}
-            aria-valuemin={20}
-            aria-valuemax={80}
-            tabIndex={0}
-          />
+          {/* Split pane */}
+          <div className={styles.splitPane} ref={containerRef}>
+            {/* Left: Editor */}
+            <div
+              className={styles.editorPanel}
+              style={{ width: `${leftWidth}%` }}
+            >
+              {isFetching && (
+                <p className={styles.loadingText}>Loading file…</p>
+              )}
+              {fetchError && (
+                <p className={styles.errorText} role="alert">{fetchError}</p>
+              )}
+              {!isFetching && !fetchError && (
+                <>
+                  <label htmlFor="markdown-editor" className={styles.srOnly}>
+                    Markdown content
+                  </label>
+                  <textarea
+                    id="markdown-editor"
+                    ref={editorRef}
+                    className={styles.textarea}
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    disabled={isEditing}
+                    spellCheck={false}
+                  />
+                </>
+              )}
 
-          {/* Right: Preview */}
-          <div
-            className={styles.previewPanel}
-            style={{ width: `${100 - leftWidth}%` }}
-          >
-            <MarkdownPreview content={content} />
+              {/* AI instruction input */}
+              <div className={styles.instructionRow}>
+                <label htmlFor="edit-instruction" className={styles.srOnly}>
+                  AI instruction
+                </label>
+                <input
+                  id="edit-instruction"
+                  type="text"
+                  className={styles.instructionInput}
+                  placeholder="Describe the change you want…"
+                  value={instruction}
+                  onChange={(e) => setInstruction(e.target.value)}
+                  onKeyDown={handleInstructionKeyDown}
+                  disabled={isEditing || isFetching}
+                  aria-label="AI instruction"
+                />
+                <button
+                  className={styles.sendButton}
+                  onClick={handleEditSubmit}
+                  disabled={isEditing || isFetching}
+                  aria-label="Apply AI edit"
+                >
+                  {isEditing ? (
+                    "…"
+                  ) : (
+                    <>
+                      <SparkleIcon size={16} />
+                      <span>Ask AI</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* AI edit status messages */}
+              <StatusList
+                messages={editStatuses}
+                listClassName={styles.statusList}
+                itemClassName={styles.statusItem}
+              />
+
+              {editError && (
+                <p className={styles.errorText} role="alert">{editError}</p>
+              )}
+
+              {/* Commit form */}
+              {showCommit && (
+                <CommitForm
+                  path={filePath}
+                  content={content}
+                  defaultBranch={defaultBranch}
+                />
+              )}
+            </div>
+
+            {/* Divider */}
+            <div
+              className={styles.divider}
+              onMouseDown={handleDividerMouseDown}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowLeft") setLeftWidth((w) => Math.max(w - 5, 20));
+                if (e.key === "ArrowRight") setLeftWidth((w) => Math.min(w + 5, 80));
+              }}
+              role="separator"
+              aria-label="Resize panels"
+              aria-orientation="vertical"
+              aria-valuenow={Math.round(leftWidth)}
+              aria-valuemin={20}
+              aria-valuemax={80}
+              tabIndex={0}
+            />
+
+            {/* Right: Preview */}
+            <div
+              ref={previewPanelRef}
+              className={styles.previewPanel}
+              style={{ width: `${100 - leftWidth}%` }}
+            >
+              <MarkdownPreview content={content} />
+            </div>
           </div>
         </div>
       </div>

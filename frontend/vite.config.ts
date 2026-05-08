@@ -5,6 +5,15 @@ import path from "path";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      "/file": "http://localhost:8000",
+      "/chat": "http://localhost:8000",
+      "/edit": "http://localhost:8000",
+      "/commit": "http://localhost:8000",
+      "/health": "http://localhost:8000",
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",

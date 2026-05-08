@@ -83,16 +83,22 @@ describe("AiSearchBar", () => {
     });
   });
 
-  it("triggers search on Enter key", async () => {
-    vi.mocked(client.streamChat).mockResolvedValue(undefined);
+  it("triggers AI search on Enter key", async () => {
+    const mockStreamChat = vi.mocked(client.streamChat).mockImplementation(
+      (_q, handlers) => {
+        handlers.onDone?.();
+        return Promise.resolve();
+      }
+    );
 
     render(<AiSearchBar />);
     const input = screen.getByRole("searchbox");
     await userEvent.type(input, "test query");
+
     fireEvent.keyDown(input, { key: "Enter" });
 
     await waitFor(() => {
-      expect(client.streamChat).toHaveBeenCalledWith(
+      expect(mockStreamChat).toHaveBeenCalledWith(
         "test query",
         expect.any(Object),
         expect.any(AbortSignal)

@@ -4,7 +4,7 @@
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  height: var(--ifm-navbar-height, 60px);
+  height: var(--ifm-navbar-height, 78px);
   display: flex;
   align-items: center;
   z-index: 200;
@@ -20,7 +20,7 @@
   position: fixed;
   top: 0;
   right: 0;
-  height: var(--ifm-navbar-height, 60px);
+  height: var(--ifm-navbar-height, 78px);
   display: flex;
   align-items: center;
   padding-right: 1rem;
@@ -39,13 +39,9 @@
   align-items: center;
   gap: 0.25rem;
   background: var(--ifm-background-surface-color);
-  border: 2px solid #e5e7eb;
+  border: 2px solid var(--ifm-color-emphasis-200);
   border-radius: 6px;
   padding: 0.25rem;
-}
-
-[data-theme="dark"] .themeToggle {
-  border-color: #374151;
 }
 
 .themeButton {
@@ -58,23 +54,19 @@
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: #6b7280;
+  color: var(--ifm-color-emphasis-500);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .themeButton:hover {
-  color: #9333ea;
-  background: rgba(147, 51, 234, 0.1);
+  color: var(--ifm-color-primary);
+  background: rgba(var(--copi-primary-rgb), 0.1);
 }
 
 .themeButton.active {
   color: #fff;
-  background: linear-gradient(135deg, #9333ea 0%, #ea580c 100%);
-}
-
-[data-theme="dark"] .themeButton.active {
-  background: linear-gradient(135deg, #d946ef 0%, #fb923c 100%);
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--ifm-color-secondary) 100%);
 }
 
 .repoLink {
@@ -88,7 +80,7 @@
 }
 
 .repoLink:hover {
-  color: #9333ea;
+  color: var(--ifm-color-primary);
   text-decoration: none;
 }
 

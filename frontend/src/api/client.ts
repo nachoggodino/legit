@@ -1,8 +1,20 @@
-const BACKEND_URL =
+// ---------------------------------------------------------------------------
+// Backend URL resolution — single source of truth
+//
+// In development (localhost), Docusaurus dev-server proxies /file, /chat, etc.
+// to the FastAPI backend (configured via the backendProxyPlugin in
+// docusaurus.config.js). So relative URLs are used — no port mismatch.
+//
+// In production the reverse-proxy (nginx/Docker) routes requests, and
+// VITE_BACKEND_URL / window.__BACKEND_URL__ can override the default.
+// ---------------------------------------------------------------------------
+const BACKEND_URL: string =
   (typeof window !== "undefined" &&
     (window as Window & { __BACKEND_URL__?: string }).__BACKEND_URL__) ||
-  (typeof process !== "undefined" && process.env?.BACKEND_URL) ||
-  "http://localhost:8000";
+  (import.meta as { env?: Record<string, string> }).env?.VITE_BACKEND_URL ||
+  (typeof window !== "undefined" && window.location.hostname === "localhost"
+    ? "" // empty → relative URLs, proxied by Docusaurus dev server to localhost:8021
+    : `${window.location.protocol}//${window.location.hostname}:8021`);
 
 // ---------------------------------------------------------------------------
 // SSE parser: yields { event, data } objects from a ReadableStream body
@@ -59,9 +71,8 @@ async function* parseSSE(
 // GET /file
 // ---------------------------------------------------------------------------
 export async function fetchFile(path: string): Promise<string> {
-  const res = await fetch(
-    `${BACKEND_URL}/file?path=${encodeURIComponent(path)}`
-  );
+  const url = `${BACKEND_URL}/file?path=${encodeURIComponent(path)}`;
+  const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Failed to fetch file "${path}": ${res.status}`);
   }
@@ -76,7 +87,8 @@ async function* _postSSE(
   body: unknown,
   signal?: AbortSignal
 ): AsyncGenerator<{ event: string; data: Record<string, unknown> }> {
-  const res = await fetch(`${BACKEND_URL}/${endpoint}`, {
+  const url = `${BACKEND_URL}/${endpoint}`;
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

@@ -132,8 +132,8 @@ export default function Navbar(props) {
   // Derive the current file path from the URL pathname.
   // Docusaurus serves docs at "/" (routeBasePath "/") so we strip the leading
   // slash and append ".md".
-  const rawPath = location.pathname.replace(/^\//, "").replace(/\/$/, "");
-  const filePath = rawPath ? `docs/${rawPath}.md` : "docs/intro.md";
+  const rawPath = location.pathname.replace(/^\/$/, "").replace(/\/$/, "");
+  const filePath = rawPath ? `docs/${rawPath}.md` : "docs/index.md";
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);

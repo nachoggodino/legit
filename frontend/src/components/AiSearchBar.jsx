@@ -23,14 +23,12 @@ function SearchIcon() {
   );
 }
 
-
-
 /**
  * AI-powered search bar for the Docusaurus navbar.
  *
  * - Text input: always visible
- * - Regular search button: triggers Docosaurus full-text search
- * - "Search with AI" button: triggers an SSE stream from /chat.
+ * - Search icon button + Enter: triggers AI search (no separate search plugin is configured)
+ * - "AI" button: also triggers AI search
  */
 export default function AiSearchBar() {
   const [query, setQuery] = useState("");
@@ -40,19 +38,6 @@ export default function AiSearchBar() {
   const [hasResult, setHasResult] = useState(false);
 
   const abortRef = useRef(null);
-
-  const handleRegularSearch = useCallback(() => {
-    if (!query.trim()) return;
-    // Trigger Docosaurus search by pressing Ctrl+K
-    const searchEvent = new KeyboardEvent("keydown", {
-      key: "k",
-      code: "KeyK",
-      ctrlKey: true,
-      metaKey: true,
-      bubbles: true,
-    });
-    window.dispatchEvent(searchEvent);
-  }, [query]);
 
   const handleAiSearch = useCallback(() => {
     if (!query.trim() || isLoading) return;
@@ -111,10 +96,10 @@ export default function AiSearchBar() {
         </label>
         <button
           className={styles.searchButton}
-          onClick={handleRegularSearch}
+          onClick={handleAiSearch}
           disabled={isLoading}
           aria-label="Search"
-          title="Search (Ctrl+K)"
+          title="Search"
         >
           <SearchIcon />
         </button>

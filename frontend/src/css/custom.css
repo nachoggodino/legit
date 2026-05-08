@@ -7,10 +7,15 @@
 /* Import HurmeGeometric Sans 4 font */
 @import url('https://fonts.googleapis.com/css2?family=Hind:wght@300;400;500;600;700&display=swap');
 
-/* Apply HurmeGeometric Sans 4 globally */
+/* ==========================================================================
+   Design Tokens — single source of truth for all colours and spacing
+   ========================================================================== */
 :root {
+  /* Typography */
   --ifm-font-family-base: 'Hind', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto Mono', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   --ifm-heading-font-family: 'Hind', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto Mono', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+
+  /* Brand palette — purple (primary) */
   --ifm-color-primary: #9333ea;
   --ifm-color-primary-dark: #7e22ce;
   --ifm-color-primary-darker: #6b21a8;
@@ -18,11 +23,30 @@
   --ifm-color-primary-light: #a855f7;
   --ifm-color-primary-lighter: #c084fc;
   --ifm-color-primary-lightest: #e9d5ff;
+  /* RGB components for use in rgba() calls */
+  --copi-primary-rgb: 147, 51, 234;
+
+  /* Brand palette — orange (secondary / accent) */
+  --ifm-color-secondary: #ea580c;
+  --ifm-color-secondary-dark: #c2410c;
+  --ifm-color-secondary-darker: #9a330c;
+  /* RGB components for use in rgba() calls */
+  --copi-secondary-rgb: 234, 88, 12;
+
+  /* Semantic colours */
+  --copi-success: #1a8870;
+  --copi-error: #dc2626;
+
+  /* Navbar — 30 % taller than the Infima default (60 px) without scaling content */
+  --ifm-navbar-height: 78px;
+  --navbar-height: 78px; /* alias used by EditModal overlay calculation */
+
+  /* Code */
   --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(147, 51, 234, 0.1);
+  --docusaurus-highlighted-code-line-bg: rgba(var(--copi-primary-rgb), 0.1);
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
+/* Dark-mode token overrides */
 [data-theme="dark"] {
   --ifm-color-primary: #d946ef;
   --ifm-color-primary-dark: #c2185b;
@@ -31,20 +55,20 @@
   --ifm-color-primary-light: #e91e63;
   --ifm-color-primary-lighter: #f06292;
   --ifm-color-primary-lightest: #f8bbd0;
-  --docusaurus-highlighted-code-line-bg: rgba(217, 70, 239, 0.2);
-}
+  --copi-primary-rgb: 217, 70, 239;
 
-/* Orange accent color for secondary elements */
-:root {
-  --ifm-color-secondary: #ea580c;
-  --ifm-color-secondary-dark: #c2410c;
-  --ifm-color-secondary-darker: #9a330c;
-}
-
-[data-theme="dark"] {
   --ifm-color-secondary: #fb923c;
   --ifm-color-secondary-dark: #f97316;
   --ifm-color-secondary-darker: #ea580c;
+  --copi-secondary-rgb: 251, 146, 60;
+
+  --docusaurus-highlighted-code-line-bg: rgba(var(--copi-primary-rgb), 0.2);
+}
+
+/* Navbar — extra vertical padding makes the bar 30 % taller without scaling content */
+.navbar {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
 }
 
 /* Navbar brand / app title styling */
@@ -53,7 +77,7 @@
   align-items: center;
   font-size: 1.5rem !important;
   font-weight: 800 !important;
-  background: linear-gradient(135deg, #9333ea 0%, #ea580c 100%);
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--ifm-color-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -62,28 +86,14 @@
   text-transform: lowercase !important;
 }
 
-[data-theme="dark"] .navbar__brand {
-  background: linear-gradient(135deg, #d946ef 0%, #fb923c 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 .navbar__title {
   font-size: 1.5rem !important;
   font-weight: 800 !important;
-  background: linear-gradient(135deg, #9333ea 0%, #ea580c 100%);
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--ifm-color-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-transform: lowercase !important;
-}
-
-[data-theme="dark"] .navbar__title {
-  background: linear-gradient(135deg, #d946ef 0%, #fb923c 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 /* Logo image sizing if present */
@@ -91,20 +101,12 @@
   height: 3.25rem !important;
   width: auto;
   /* Tint the logo to purple using hue-rotate and saturation */
-  filter: hue-rotate(280deg) saturate(1.2) brightness(0.95) drop-shadow(0 2px 8px rgba(147, 51, 234, 0.2));
+  filter: hue-rotate(280deg) saturate(1.2) brightness(0.95) drop-shadow(0 2px 8px rgba(var(--copi-primary-rgb), 0.2));
   transition: filter 0.2s;
 }
 
 .navbar__logo:hover {
-  filter: hue-rotate(280deg) saturate(1.2) brightness(1) drop-shadow(0 4px 12px rgba(147, 51, 234, 0.3));
-}
-
-[data-theme="dark"] .navbar__logo {
-  filter: hue-rotate(280deg) saturate(1.3) brightness(1.1) drop-shadow(0 2px 8px rgba(217, 70, 239, 0.3));
-}
-
-[data-theme="dark"] .navbar__logo:hover {
-  filter: hue-rotate(280deg) saturate(1.3) brightness(1.15) drop-shadow(0 4px 12px rgba(217, 70, 239, 0.4));
+  filter: hue-rotate(280deg) saturate(1.2) brightness(1) drop-shadow(0 4px 12px rgba(var(--copi-primary-rgb), 0.3));
 }
 
 /* Enhanced color mode toggle styling */
@@ -125,8 +127,8 @@ button[title="Light mode"] svg {
 }
 
 .navbar__toggle:hover {
-  color: #9333ea;
-  background: rgba(147, 51, 234, 0.1);
+  color: var(--ifm-color-primary);
+  background: rgba(var(--copi-primary-rgb), 0.1);
 }
 
 /* Style the switch-icon (toggle between light and dark) */
@@ -137,12 +139,12 @@ button[title="Light mode"] svg {
 
 /* Make both icons visible in toggle - light mode icon */
 [data-theme="light"] .lightToggleIcon_pyhR {
-  color: #9333ea;
+  color: var(--ifm-color-primary);
 }
 
 /* Make both icons visible in toggle - dark mode icon */
 [data-theme="dark"] .darkToggleIcon_wfgz {
-  color: #ea580c;
+  color: var(--ifm-color-secondary);
 }
 
 /* Enhanced button styling in navbar */
@@ -151,7 +153,7 @@ button[title="Light mode"] svg {
 }
 
 .navbar__item:hover {
-  color: #9333ea;
+  color: var(--ifm-color-primary);
 }
 
 /* Page title styling - make it more prominent */
@@ -161,16 +163,7 @@ button[title="Light mode"] svg {
   font-size: 2.5rem !important;
   font-weight: 800 !important;
   margin-bottom: 1.5rem !important;
-  background: linear-gradient(135deg, #9333ea 0%, #ea580c 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-[data-theme="dark"] .markdown h1,
-[data-theme="dark"] [class*="DocPageLayout"] h1,
-[data-theme="dark"] .docTitle_node_modules {
-  background: linear-gradient(135deg, #d946ef 0%, #fb923c 100%);
+  background: linear-gradient(135deg, var(--ifm-color-primary) 0%, var(--ifm-color-secondary) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -180,17 +173,9 @@ button[title="Light mode"] svg {
 .theme-doc-sidebar-item-category-level-1 > .menu__link--active,
 .theme-doc-sidebar-item-link-level-1 > .menu__link--active,
 a.menu__link--active {
-  background: linear-gradient(135deg, rgba(147, 51, 234, 0.15) 0%, rgba(234, 88, 12, 0.15) 100%) !important;
-  color: #9333ea !important;
-  border-left: 4px solid #9333ea !important;
+  background: linear-gradient(135deg, rgba(var(--copi-primary-rgb), 0.15) 0%, rgba(var(--copi-secondary-rgb), 0.15) 100%) !important;
+  color: var(--ifm-color-primary) !important;
+  border-left: 4px solid var(--ifm-color-primary) !important;
   padding-left: calc(var(--doc-sidebar-width, 300px) * 0.05) !important;
   font-weight: 600 !important;
-}
-
-[data-theme="dark"] .theme-doc-sidebar-item-category-level-1 > .menu__link--active,
-[data-theme="dark"] .theme-doc-sidebar-item-link-level-1 > .menu__link--active,
-[data-theme="dark"] a.menu__link--active {
-  background: linear-gradient(135deg, rgba(217, 70, 239, 0.15) 0%, rgba(251, 146, 60, 0.15) 100%) !important;
-  color: #d946ef !important;
-  border-left: 4px solid #d946ef !important;
 }
