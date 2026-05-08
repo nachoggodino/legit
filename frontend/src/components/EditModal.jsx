@@ -3,6 +3,7 @@ import { fetchFile, streamEdit } from "../api/client";
 import MarkdownPreview from "./MarkdownPreview";
 import CommitForm from "./CommitForm";
 import NavigationGuard from "./NavigationGuard";
+import StatusList from "./StatusList";
 import styles from "./EditModal.module.css";
 
 /**
@@ -33,6 +34,7 @@ export default function EditModal({
   const [isEditing, setIsEditing] = useState(false);
   const [editStatuses, setEditStatuses] = useState([]);
   const [editError, setEditError] = useState("");
+  const editStatusIdRef = useRef(0);
 
   // Commit UI toggle
   const [showCommit, setShowCommit] = useState(false);
@@ -103,12 +105,17 @@ export default function EditModal({
       content,
       instruction.trim(),
       {
-        onStatus: (msg) => setEditStatuses((prev) => [...prev, msg]),
+        onStatus: (msg) =>
+          setEditStatuses((prev) => [
+            ...prev,
+            { id: editStatusIdRef.current++, text: msg },
+          ]),
         onDone: (newContent) => {
           setContent(newContent);
           setIsEditing(false);
           setInstruction("");
           setEditStatuses([]);
+          editStatusIdRef.current = 0;
         },
         onError: (msg) => {
           setEditError(msg);
@@ -164,7 +171,6 @@ export default function EditModal({
       <NavigationGuard
         hasUnsavedEdits={hasUnsavedEdits}
         isRequestActive={isEditing}
-        onCancelRequest={cancelRequest}
       />
 
       <div className={styles.overlay} role="dialog" aria-modal="true" aria-label="Edit document">
@@ -247,13 +253,11 @@ export default function EditModal({
             </div>
 
             {/* AI edit status messages */}
-            {editStatuses.length > 0 && (
-              <ul className={styles.statusList} aria-live="polite">
-                {editStatuses.map((msg, i) => (
-                  <li key={`${i}-${msg.slice(0, 30)}`} className={styles.statusItem}>{msg}</li>
-                ))}
-              </ul>
-            )}
+            <StatusList
+              messages={editStatuses}
+              listClassName={styles.statusList}
+              itemClassName={styles.statusItem}
+            />
 
             {editError && (
               <p className={styles.errorText} role="alert">{editError}</p>
@@ -279,7 +283,7 @@ export default function EditModal({
             }}
             role="separator"
             aria-label="Resize panels"
-            aria-orientation="horizontal"
+            aria-orientation="vertical"
             aria-valuenow={Math.round(leftWidth)}
             aria-valuemin={20}
             aria-valuemax={80}

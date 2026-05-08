@@ -15,6 +15,7 @@ from services.index import serialise_index
 chat_router = APIRouter()
 
 _MAX_TOOL_ITERATIONS: int = 5
+_CONTEXT_BUDGET_WARN_THRESHOLD: float = 0.8
 
 _GET_FILE_TOOL: dict[str, Any] = {
     "type": "function",
@@ -31,7 +32,6 @@ _GET_FILE_TOOL: dict[str, Any] = {
     },
 }
 
-# Instructs the LLM to search the index for relevant files before answering.
 _SYSTEM_PROMPT_TEMPLATE: str = (
     "You are an expert assistant on the AI research project documented in this wiki.\n"
     "You have access to an index of all available documents.\n"
@@ -67,7 +67,7 @@ async def _chat_generator(query: str) -> AsyncGenerator[str, None]:
         index_json = serialise_index()
         max_tokens = get_max_context_tokens()
         total_tokens = estimate_tokens(index_json) + estimate_tokens(query)
-        warned = total_tokens >= int(max_tokens * 0.8)
+        warned = total_tokens >= int(max_tokens * _CONTEXT_BUDGET_WARN_THRESHOLD)
 
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": _build_system_prompt(index_json, warned)},
@@ -89,7 +89,7 @@ async def _chat_generator(query: str) -> AsyncGenerator[str, None]:
             if not tool_calls:
                 break
 
-            # Persist the assistant's tool-call turn in the conversation
+            # OpenAI requires the assistant message to precede its tool results
             messages.append(assistant_message)
 
             for tool_call in tool_calls:
@@ -123,7 +123,7 @@ async def _chat_generator(query: str) -> AsyncGenerator[str, None]:
 
                 # Re-check context budget after adding file content
                 total_tokens += estimate_tokens(content)
-                if not warned and total_tokens >= int(max_tokens * 0.8):
+                if not warned and total_tokens >= int(max_tokens * _CONTEXT_BUDGET_WARN_THRESHOLD):
                     warned = True
                     messages[0]["content"] = _build_system_prompt(index_json, warned)
 

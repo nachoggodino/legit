@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { streamCommit } from "../api/client";
+import StatusList from "./StatusList";
 import styles from "./CommitForm.module.css";
 
 /**
@@ -19,6 +20,7 @@ export default function CommitForm({ path, content, defaultBranch = "master" }) 
   const [error, setError] = useState("");
 
   const abortRef = useRef(null);
+  const statusIdRef = useRef(0);
 
   const handleCommit = () => {
     if (!branch.trim() || isLoading) return;
@@ -34,10 +36,14 @@ export default function CommitForm({ path, content, defaultBranch = "master" }) 
 
     streamCommit(path, content, branch.trim(), {
       onStatus: (message) =>
-        setStatusMessages((prev) => [...prev, message]),
+        setStatusMessages((prev) => [
+          ...prev,
+          { id: statusIdRef.current++, text: message },
+        ]),
       onDone: (url) => {
         setIsLoading(false);
         setCommitUrl(url);
+        statusIdRef.current = 0;
       },
       onError: (message) => {
         setIsLoading(false);
@@ -73,15 +79,11 @@ export default function CommitForm({ path, content, defaultBranch = "master" }) 
         </div>
       )}
 
-      {statusMessages.length > 0 && (
-        <ul className={styles.statusList} aria-live="polite">
-          {statusMessages.map((msg, i) => (
-            <li key={`${i}-${msg.slice(0, 30)}`} className={styles.statusItem}>
-              {msg}
-            </li>
-          ))}
-        </ul>
-      )}
+      <StatusList
+        messages={statusMessages}
+        listClassName={styles.statusList}
+        itemClassName={styles.statusItem}
+      />
 
       {error && (
         <p className={styles.error} role="alert">

@@ -69,6 +69,24 @@ export async function fetchFile(path: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------------
+// Private helper: POST to an endpoint and yield SSE events
+// ---------------------------------------------------------------------------
+async function* _postSSE(
+  endpoint: string,
+  body: unknown,
+  signal?: AbortSignal
+): AsyncGenerator<{ event: string; data: Record<string, unknown> }> {
+  const res = await fetch(`${BACKEND_URL}/${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  if (!res.ok) throw new Error(`${endpoint} request failed: ${res.status}`);
+  yield* parseSSE(res.body!);
+}
+
+// ---------------------------------------------------------------------------
 // POST /chat  — SSE: reading_file | token | done | error
 // ---------------------------------------------------------------------------
 export interface ChatHandlers {
@@ -78,25 +96,13 @@ export interface ChatHandlers {
   onError?: (message: string) => void;
 }
 
-export function streamChat(
+export async function streamChat(
   query: string,
   handlers: ChatHandlers,
   signal?: AbortSignal
 ): Promise<void> {
-  return (async () => {
-    const res = await fetch(`${BACKEND_URL}/chat`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query }),
-      signal,
-    });
-
-    if (!res.ok) {
-      handlers.onError?.(`Chat request failed: ${res.status}`);
-      return;
-    }
-
-    for await (const { event, data } of parseSSE(res.body!)) {
+  try {
+    for await (const { event, data } of _postSSE("chat", { query }, signal)) {
       if (event === "reading_file") {
         handlers.onReadingFile?.((data as { path: string }).path);
       } else if (event === "token") {
@@ -107,7 +113,9 @@ export function streamChat(
         handlers.onError?.((data as { message: string }).message);
       }
     }
-  })();
+  } catch (err) {
+    handlers.onError?.((err as Error).message);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -119,27 +127,19 @@ export interface EditHandlers {
   onError?: (message: string) => void;
 }
 
-export function streamEdit(
+export async function streamEdit(
   path: string,
   content: string,
   instruction: string,
   handlers: EditHandlers,
   signal?: AbortSignal
 ): Promise<void> {
-  return (async () => {
-    const res = await fetch(`${BACKEND_URL}/edit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, content, instruction }),
-      signal,
-    });
-
-    if (!res.ok) {
-      handlers.onError?.(`Edit request failed: ${res.status}`);
-      return;
-    }
-
-    for await (const { event, data } of parseSSE(res.body!)) {
+  try {
+    for await (const { event, data } of _postSSE(
+      "edit",
+      { path, content, instruction },
+      signal
+    )) {
       if (event === "status") {
         handlers.onStatus?.((data as { message: string }).message);
       } else if (event === "done") {
@@ -148,7 +148,9 @@ export function streamEdit(
         handlers.onError?.((data as { message: string }).message);
       }
     }
-  })();
+  } catch (err) {
+    handlers.onError?.((err as Error).message);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -160,27 +162,19 @@ export interface CommitHandlers {
   onError?: (message: string) => void;
 }
 
-export function streamCommit(
+export async function streamCommit(
   path: string,
   content: string,
   branch: string,
   handlers: CommitHandlers,
   signal?: AbortSignal
 ): Promise<void> {
-  return (async () => {
-    const res = await fetch(`${BACKEND_URL}/commit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ path, content, branch }),
-      signal,
-    });
-
-    if (!res.ok) {
-      handlers.onError?.(`Commit request failed: ${res.status}`);
-      return;
-    }
-
-    for await (const { event, data } of parseSSE(res.body!)) {
+  try {
+    for await (const { event, data } of _postSSE(
+      "commit",
+      { path, content, branch },
+      signal
+    )) {
       if (event === "status") {
         handlers.onStatus?.((data as { message: string }).message);
       } else if (event === "done") {
@@ -189,5 +183,7 @@ export function streamCommit(
         handlers.onError?.((data as { message: string }).message);
       }
     }
-  })();
+  } catch (err) {
+    handlers.onError?.((err as Error).message);
+  }
 }

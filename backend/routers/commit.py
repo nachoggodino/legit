@@ -14,7 +14,6 @@ from services.index import serialise_index, update_index_entry
 
 commit_router = APIRouter()
 
-# Instructs the LLM to return only raw JSON with "summary" and "commit_message" fields.
 _COMMIT_SYSTEM_PROMPT_TEMPLATE: str = (
     "You are a technical assistant specialized in AI research documentation.\n"
     "Read the following Markdown document and return a JSON object with two fields:\n"
@@ -33,7 +32,6 @@ async def _commit_generator(
 ) -> AsyncGenerator[str, None]:
     try:
         await maybe_pull()
-        # Check context budget
         error = check_context_budget(content)
         if error:
             yield sse_event("error", {"message": error})

@@ -19,11 +19,6 @@ def load_index() -> None:
         _INDEX = []
 
 
-def get_index() -> list[dict[str, Any]]:
-    """Return a shallow copy of the in-memory index."""
-    return list(_INDEX)
-
-
 def update_index_entry(
     path: str,
     title: str | None = None,

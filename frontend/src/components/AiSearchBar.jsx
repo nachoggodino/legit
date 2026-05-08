@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import { streamChat } from "../api/client";
 import MarkdownPreview from "./MarkdownPreview";
+import SparkleIcon from "./icons/SparkleIcon";
 import styles from "./AiSearchBar.module.css";
 
 /** Search icon */
@@ -22,21 +23,7 @@ function SearchIcon() {
   );
 }
 
-/** Spark / sparkle icon for the AI button */
-function SparkIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z" />
-    </svg>
-  );
-}
+
 
 /**
  * AI-powered search bar for the Docusaurus navbar.
@@ -149,7 +136,7 @@ export default function AiSearchBar() {
           aria-label="Search with AI"
           title="Search with AI"
         >
-          <SparkIcon />
+          <SparkleIcon size={16} />
           <span className={styles.aiLabel}>AI</span>
         </button>
       </div>
@@ -163,7 +150,6 @@ export default function AiSearchBar() {
       {(result || isLoading) && (
         <div
           className={styles.resultContainer}
-          style={{ maxHeight: "60vh", overflowY: "auto" }}
           aria-live="polite"
           aria-label="AI search result"
         >

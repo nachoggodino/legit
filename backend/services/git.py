@@ -4,7 +4,7 @@ import os
 import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import git
 import requests
@@ -116,33 +116,23 @@ class GitHubProvider(GitProvider):
     def _base_url(self) -> str:
         return f"https://api.github.com/repos/{self._owner}/{self._repo}"
 
+    async def _gh_request(self, method: Literal["get", "post", "patch"], url: str, *, body: Any = None) -> Any:
+        fn = getattr(requests, method)
+        resp = await asyncio.to_thread(fn, url, headers=self._headers, json=body, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+
     async def commit_files(
         self, files: list[dict[str, Any]], branch: str, message: str
     ) -> str:
-        headers = self._headers
         base_url = self._base_url
 
-        # 1. Get the current branch ref to obtain the latest commit SHA
-        ref_resp = await asyncio.to_thread(
-            requests.get,
-            f"{base_url}/git/ref/heads/{branch}",
-            headers=headers,
-            timeout=30,
-        )
-        ref_resp.raise_for_status()
-        latest_commit_sha: str = ref_resp.json()["object"]["sha"]
+        ref_data = await self._gh_request("get", f"{base_url}/git/ref/heads/{branch}")
+        latest_commit_sha: str = ref_data["object"]["sha"]
 
-        # 2. Get the tree SHA for the latest commit
-        commit_resp = await asyncio.to_thread(
-            requests.get,
-            f"{base_url}/git/commits/{latest_commit_sha}",
-            headers=headers,
-            timeout=30,
-        )
-        commit_resp.raise_for_status()
-        base_tree_sha: str = commit_resp.json()["tree"]["sha"]
+        commit_data = await self._gh_request("get", f"{base_url}/git/commits/{latest_commit_sha}")
+        base_tree_sha: str = commit_data["tree"]["sha"]
 
-        # 3. Create a new tree with the updated files
         tree_items = [
             {
                 "path": f["path"],
@@ -152,40 +142,22 @@ class GitHubProvider(GitProvider):
             }
             for f in files
         ]
-        tree_resp = await asyncio.to_thread(
-            requests.post,
-            f"{base_url}/git/trees",
-            json={"base_tree": base_tree_sha, "tree": tree_items},
-            headers=headers,
-            timeout=30,
+        tree_data = await self._gh_request(
+            "post", f"{base_url}/git/trees",
+            body={"base_tree": base_tree_sha, "tree": tree_items},
         )
-        tree_resp.raise_for_status()
-        new_tree_sha: str = tree_resp.json()["sha"]
+        new_tree_sha: str = tree_data["sha"]
 
-        # 4. Create the new commit
-        new_commit_resp = await asyncio.to_thread(
-            requests.post,
-            f"{base_url}/git/commits",
-            json={
-                "message": message,
-                "tree": new_tree_sha,
-                "parents": [latest_commit_sha],
-            },
-            headers=headers,
-            timeout=30,
+        new_commit_data = await self._gh_request(
+            "post", f"{base_url}/git/commits",
+            body={"message": message, "tree": new_tree_sha, "parents": [latest_commit_sha]},
         )
-        new_commit_resp.raise_for_status()
-        new_commit_sha: str = new_commit_resp.json()["sha"]
+        new_commit_sha: str = new_commit_data["sha"]
 
-        # 5. Update the branch ref to point to the new commit
-        patch_resp = await asyncio.to_thread(
-            requests.patch,
-            f"{base_url}/git/refs/heads/{branch}",
-            json={"sha": new_commit_sha},
-            headers=headers,
-            timeout=30,
+        await self._gh_request(
+            "patch", f"{base_url}/git/refs/heads/{branch}",
+            body={"sha": new_commit_sha},
         )
-        patch_resp.raise_for_status()
 
         await asyncio.to_thread(self._write_files_locally, files)
 

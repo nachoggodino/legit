@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import shutil
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -87,33 +88,21 @@ def _clone_repo_if_needed() -> None:
             logger.warning(
                 f"Hard reset failed, will re-clone. Error: {e}"
             )
-            import shutil
-            shutil.rmtree(docs_path)
 
-    # Fresh clone
-    logger.info("Cloning repo from scratch...")
     docs_path.mkdir(parents=True, exist_ok=True)
 
-    # Construct authenticated URL based on provider
-    # For GitLab: https://oauth2:<token>@host/path
-    # For GitHub: https://<token>@host/path
-    if provider == "gitlab":
-        # GitLab PAT auth: oauth2 is the username, token is the password
-        parts = repo_url.split("://", 1)
-        authenticated_url = f"{parts[0]}://oauth2:{token}@{parts[1]}"
-    elif provider == "github":
-        # GitHub PAT auth: token is the username, empty password
-        parts = repo_url.split("://", 1)
-        authenticated_url = f"{parts[0]}://{token}@{parts[1]}"
-    else:
+    if provider not in ("gitlab", "github"):
         raise ValueError(f"Unsupported GIT_PROVIDER: {provider}")
 
     clone_env = {
         **os.environ,
         "GIT_TERMINAL_PROMPT": "0",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "http.extraHeader",
+        "GIT_CONFIG_VALUE_0": f"Authorization: Bearer {token}",
     }
     logger.info(f"Cloning to {docs_path}...")
-    repo = git.Repo.clone_from(authenticated_url, str(docs_path), env=clone_env)
+    repo = git.Repo.clone_from(repo_url, str(docs_path), env=clone_env)
     logger.info(f"✓ Cloned successfully at {repo.head.commit.hexsha[:8]}")
 
 
@@ -164,7 +153,7 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=[os.environ.get("FRONTEND_URL", "http://localhost:3000")],
         allow_methods=["*"],
         allow_headers=["*"],
     )

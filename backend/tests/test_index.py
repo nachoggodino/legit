@@ -7,7 +7,6 @@ import pytest
 
 import services.index as index_module
 from services.index import (
-    get_index,
     load_index,
     serialise_index,
     update_index_entry,
@@ -66,28 +65,6 @@ class TestLoadIndex:
         load_index()
 
         assert index_module._INDEX == []
-
-
-# ---------------------------------------------------------------------------
-# get_index
-# ---------------------------------------------------------------------------
-
-
-class TestGetIndex:
-    def test_returns_copy(self) -> None:
-        index_module._INDEX = [{"path": "a.md", "title": "A", "summary": "", "updated": "2026-01-01"}]
-        result = get_index()
-        assert result == index_module._INDEX
-        assert result is not index_module._INDEX
-
-    def test_mutating_copy_does_not_affect_index(self) -> None:
-        index_module._INDEX = [{"path": "a.md", "title": "A", "summary": "", "updated": "2026-01-01"}]
-        result = get_index()
-        result.append({"path": "extra.md", "title": "Extra", "summary": "", "updated": "2026-01-01"})
-        assert len(index_module._INDEX) == 1
-
-    def test_returns_empty_list_when_index_empty(self) -> None:
-        assert get_index() == []
 
 
 # ---------------------------------------------------------------------------

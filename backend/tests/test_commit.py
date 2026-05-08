@@ -1,4 +1,5 @@
 import json
+from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -24,6 +25,14 @@ def make_commit_llm_response(
 
 
 class TestCommitNormalFlow:
+    @pytest.fixture(autouse=True)
+    def _commit_patches(self, mock_git_provider: MagicMock) -> Generator[None, None, None]:
+        with (
+            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
+            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
+        ):
+            yield
+
     def test_returns_200_with_event_stream(
         self,
         app_client: TestClient,
@@ -31,11 +40,7 @@ class TestCommitNormalFlow:
     ) -> None:
         mock_llm = MagicMock(return_value=make_commit_llm_response())
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             response = app_client.post(
                 "/commit",
                 json={
@@ -57,11 +62,7 @@ class TestCommitNormalFlow:
         mock_git_provider.commit_files = AsyncMock(return_value=expected_url)
         mock_llm = MagicMock(return_value=make_commit_llm_response())
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             response = app_client.post(
                 "/commit",
                 json={
@@ -83,11 +84,7 @@ class TestCommitNormalFlow:
     ) -> None:
         mock_llm = MagicMock(return_value=make_commit_llm_response())
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             response = app_client.post(
                 "/commit",
                 json={
@@ -115,11 +112,7 @@ class TestCommitNormalFlow:
             )
         )
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             app_client.post(
                 "/commit",
                 json={
@@ -143,11 +136,7 @@ class TestCommitNormalFlow:
     ) -> None:
         mock_llm = MagicMock(return_value=make_commit_llm_response())
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             app_client.post(
                 "/commit",
                 json={
@@ -170,11 +159,7 @@ class TestCommitNormalFlow:
             return_value=make_commit_llm_response(commit_message="fix: correct typos in AI doc")
         )
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             app_client.post(
                 "/commit",
                 json={
@@ -240,7 +225,6 @@ class TestCommitNormalFlow:
         mock_llm = MagicMock(return_value=make_commit_llm_response())
 
         with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
             patch("routers.commit.maybe_pull", mock_pull),
             patch("routers.commit.call_llm_full", mock_llm),
         ):
@@ -262,6 +246,14 @@ class TestCommitNormalFlow:
 
 
 class TestCommitErrors:
+    @pytest.fixture(autouse=True)
+    def _commit_patches(self, mock_git_provider: MagicMock) -> Generator[None, None, None]:
+        with (
+            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
+            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
+        ):
+            yield
+
     def test_llm_failure_emits_error_event(
         self,
         app_client: TestClient,
@@ -269,11 +261,7 @@ class TestCommitErrors:
     ) -> None:
         mock_llm = MagicMock(side_effect=RuntimeError("LLM timeout"))
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             response = app_client.post(
                 "/commit",
                 json={
@@ -295,11 +283,7 @@ class TestCommitErrors:
     ) -> None:
         mock_llm = MagicMock(return_value=make_llm_response("not valid json"))
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             response = app_client.post(
                 "/commit",
                 json={
@@ -324,11 +308,7 @@ class TestCommitErrors:
             return_value=make_llm_response(json.dumps({"summary": "Only summary"}))
         )
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             response = app_client.post(
                 "/commit",
                 json={
@@ -350,11 +330,7 @@ class TestCommitErrors:
         mock_git_provider.commit_files = AsyncMock(side_effect=RuntimeError("Git push failed"))
         mock_llm = MagicMock(return_value=make_commit_llm_response())
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             response = app_client.post(
                 "/commit",
                 json={
@@ -391,11 +367,7 @@ class TestCommitErrors:
     ) -> None:
         mock_llm = MagicMock(return_value=make_commit_llm_response())
 
-        with (
-            patch("routers.commit.get_git_provider", return_value=mock_git_provider),
-            patch("routers.commit.maybe_pull", new_callable=AsyncMock),
-            patch("routers.commit.call_llm_full", mock_llm),
-        ):
+        with patch("routers.commit.call_llm_full", mock_llm):
             response = app_client.post(
                 "/commit",
                 json={

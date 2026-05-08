@@ -316,5 +316,6 @@ class TestMaybePull:
         with patch("services.git.git.Repo", return_value=mock_repo_instance):
             await maybe_pull()
 
-        mock_origin.pull.assert_called_once()
+        mock_origin.fetch.assert_called_once()
+        mock_repo_instance.git.reset.assert_called_once_with("--hard", f"origin/{mock_repo_instance.active_branch.name}")
         assert git_module._last_pull_at > 0.0

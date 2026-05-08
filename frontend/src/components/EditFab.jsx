@@ -1,4 +1,5 @@
 import React from "react";
+import SparkleIcon from "./icons/SparkleIcon";
 import styles from "./EditFab.module.css";
 
 /** Pencil icon */
@@ -20,21 +21,7 @@ function PencilIcon() {
   );
 }
 
-/** Sparkle icon */
-function SparkleIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74L12 2z" />
-    </svg>
-  );
-}
+
 
 /** Simple spinning loader */
 function Spinner() {
@@ -74,7 +61,7 @@ export default function EditFab({ isLoading, isModalOpen, onToggle }) {
         <Spinner />
       ) : (
         <>
-          <SparkleIcon />
+          <SparkleIcon size={18} />
           <PencilIcon />
         </>
       )}

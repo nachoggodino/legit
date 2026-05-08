@@ -73,7 +73,11 @@ class TestCloneRepoIfNeeded:
         monkeypatch.setenv("DOCS_LOCAL_PATH", str(tmp_path))
         (tmp_path / ".git").mkdir()
 
-        with patch("main.git.Repo.clone_from") as mock_clone:
+        mock_repo_instance = MagicMock()
+        with (
+            patch("main.git.Repo", return_value=mock_repo_instance),
+            patch("main.git.Repo.clone_from") as mock_clone,
+        ):
             _clone_repo_if_needed()
 
         mock_clone.assert_not_called()
@@ -112,9 +116,10 @@ class TestCloneRepoIfNeeded:
 
         captured_args: dict[str, object] = {}
 
-        def capture_clone(url: str, path: str, env: dict[str, str]) -> None:
+        def capture_clone(url: str, path: str, env: dict[str, str]) -> MagicMock:
             captured_args["url"] = url
             captured_args["env"] = env
+            return MagicMock()
 
         with patch("main.git.Repo.clone_from", side_effect=capture_clone):
             _clone_repo_if_needed()

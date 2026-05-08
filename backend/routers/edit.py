@@ -12,7 +12,6 @@ from services.ai import call_llm_full, check_context_budget
 
 edit_router = APIRouter()
 
-# Instructs the LLM to return only the modified Markdown document with no surrounding explanation.
 _SYSTEM_PROMPT: str = (
     "You are a technical writing assistant specialized in AI research documentation.\n"
     "The user will provide a Markdown document and an editing instruction.\n"
@@ -36,7 +35,6 @@ async def _edit_generator(
     instruction: str,
 ) -> AsyncGenerator[str, None]:
     try:
-        # Check context budget
         error = check_context_budget(content, instruction)
         if error:
             yield sse_event("error", {"message": error})
