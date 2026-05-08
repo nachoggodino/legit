@@ -3,27 +3,35 @@
   bottom: 1.5rem;
   right: 1.5rem;
   z-index: 1000;
-  width: 3.25rem;
-  height: 3.25rem;
-  border-radius: 50%;
+  height: 3rem;
+  padding: 0 1.25rem;
+  border-radius: 0.75rem;
   border: none;
-  background: var(--ifm-color-primary);
+  background: linear-gradient(135deg, #9333ea 0%, #ea580c 100%);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.15s, box-shadow 0.15s;
+  gap: 0.5rem;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap;
 }
 
 .fab:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  transform: scale(1.05) translateY(-2px);
+  box-shadow: 0 6px 20px rgba(147, 51, 234, 0.4);
 }
 
 .fab:active {
-  transform: scale(0.96);
+  transform: scale(0.98);
+}
+
+.label {
+  font-weight: 600;
 }
 
 @keyframes spin {

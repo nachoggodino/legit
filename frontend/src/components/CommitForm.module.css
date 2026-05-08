@@ -20,13 +20,19 @@
 .input {
   flex: 1;
   min-width: 8rem;
-  height: 2rem;
-  padding: 0 0.5rem;
-  border: 1px solid var(--ifm-color-emphasis-300);
-  border-radius: 4px;
+  height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 6px;
   font-size: 0.875rem;
   background: var(--ifm-background-surface-color);
   color: var(--ifm-font-color-base);
+  transition: border-color 0.2s;
+}
+
+.input:focus {
+  border-color: #9333ea;
+  outline: none;
 }
 
 .input:disabled {
@@ -34,21 +40,24 @@
 }
 
 .commitButton {
-  height: 2rem;
-  padding: 0 1rem;
+  height: 2.25rem;
+  padding: 0 1.25rem;
   border: none;
-  border-radius: 4px;
-  background: var(--ifm-color-primary);
+  border-radius: 6px;
+  background: linear-gradient(135deg, #9333ea 0%, #ea580c 100%);
   color: #fff;
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: opacity 0.15s;
+  transition: opacity 0.2s, transform 0.2s;
+  box-shadow: 0 2px 8px rgba(147, 51, 234, 0.25);
 }
 
 .commitButton:hover:not(:disabled) {
-  opacity: 0.85;
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.35);
 }
 
 .commitButton:disabled {

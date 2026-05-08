@@ -3,6 +3,25 @@ import { streamChat } from "../api/client";
 import MarkdownPreview from "./MarkdownPreview";
 import styles from "./AiSearchBar.module.css";
 
+/** Search icon */
+function SearchIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
 /** Spark / sparkle icon for the AI button */
 function SparkIcon() {
   return (
@@ -22,10 +41,9 @@ function SparkIcon() {
 /**
  * AI-powered search bar for the Docusaurus navbar.
  *
- * - Text input: always visible; Enter key is a no-op (no plain-text search).
+ * - Text input: always visible
+ * - Regular search button: triggers Docosaurus full-text search
  * - "Search with AI" button: triggers an SSE stream from /chat.
- * - Status text appears below input while loading.
- * - Result renders as a streaming Markdown block (max 60vh, then scrollable).
  */
 export default function AiSearchBar() {
   const [query, setQuery] = useState("");
@@ -36,7 +54,20 @@ export default function AiSearchBar() {
 
   const abortRef = useRef(null);
 
-  const handleSearch = useCallback(() => {
+  const handleRegularSearch = useCallback(() => {
+    if (!query.trim()) return;
+    // Trigger Docosaurus search by pressing Ctrl+K
+    const searchEvent = new KeyboardEvent("keydown", {
+      key: "k",
+      code: "KeyK",
+      ctrlKey: true,
+      metaKey: true,
+      bubbles: true,
+    });
+    window.dispatchEvent(searchEvent);
+  }, [query]);
+
+  const handleAiSearch = useCallback(() => {
     if (!query.trim() || isLoading) return;
 
     // Cancel any in-flight request
@@ -72,7 +103,7 @@ export default function AiSearchBar() {
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      handleSearch();
+      handleAiSearch();
     }
   };
 
@@ -91,6 +122,15 @@ export default function AiSearchBar() {
         <label htmlFor="ai-search-input" className={styles.srOnly}>
           Search documentation
         </label>
+        <button
+          className={styles.searchButton}
+          onClick={handleRegularSearch}
+          disabled={isLoading}
+          aria-label="Search"
+          title="Search (Ctrl+K)"
+        >
+          <SearchIcon />
+        </button>
         <input
           id="ai-search-input"
           type="search"
@@ -104,8 +144,8 @@ export default function AiSearchBar() {
         />
         <button
           className={styles.aiButton}
-          onClick={handleSearch}
-          disabled={isLoading || !query.trim()}
+          onClick={handleAiSearch}
+          disabled={isLoading}
           aria-label="Search with AI"
           title="Search with AI"
         >

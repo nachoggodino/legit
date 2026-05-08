@@ -8,14 +8,29 @@ services:
     env_file:
       - .env
     volumes:
-      - docs-repo:/app/docs-repo
+      - ./docs-repo:/app/docs-repo
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 5m
       timeout: 10s
       retries: 3
-      start_period: 30s
+      start_period: 60s
+      start_interval: 5s
 
-volumes:
-  docs-repo:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./docs-repo:/app/docs-repo
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      - DOCS_PATH=/app/docs-repo/docs

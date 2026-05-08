@@ -14,6 +14,8 @@
     "test:verbose": "docker compose run --rm backend python -m pytest -v",
     "test:local": "cd backend && python -m pytest",
     "clean": "docker compose down --volumes --remove-orphans",
-    "shell": "docker compose exec backend /bin/bash"
+    "shell": "docker compose exec backend /bin/bash",
+    "dev:backend": "docker compose up -d backend",
+    "dev:frontend": "cd frontend && DOCS_PATH=../docs-repo/docs npm start"
   }
 }

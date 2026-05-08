@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 import time
 from abc import ABC, abstractmethod
@@ -8,7 +9,9 @@ from typing import Any
 import git
 import requests
 
-PULL_INTERVAL_SECONDS: int = 60
+logger = logging.getLogger(__name__)
+
+PULL_INTERVAL_SECONDS: int = 120  # Pull every 2 minutes
 
 
 class GitProvider(ABC):
@@ -31,7 +34,10 @@ class GitProvider(ABC):
     async def get_file(self, path: str) -> str:
         """Return the raw content of a file from the local clone."""
         full_path = self._docs_path / path
-        return await asyncio.to_thread(full_path.read_text, encoding="utf-8")
+        logger.debug(f"Reading file: {path}")
+        content = await asyncio.to_thread(full_path.read_text, encoding="utf-8")
+        logger.debug(f"Read {len(content)} bytes from {path}")
+        return content
 
     @abstractmethod
     async def commit_files(
@@ -51,10 +57,12 @@ class GitLabProvider(GitProvider):
     async def commit_files(
         self, files: list[dict[str, Any]], branch: str, message: str
     ) -> str:
+        logger.info(f"Committing {len(files)} file(s) to {branch}")
         actions: list[dict[str, str]] = []
         for f in files:
             local_path = self._docs_path / f["path"]
             action = "update" if local_path.exists() else "create"
+            logger.debug(f"  - {action}: {f['path']}")
             actions.append(
                 {
                     "action": action,
@@ -84,7 +92,9 @@ class GitLabProvider(GitProvider):
 
         await asyncio.to_thread(self._write_files_locally, files)
 
-        return f"{self._repo_url}/-/commit/{commit_id}"
+        commit_url = f"{self._repo_url}/-/commit/{commit_id}"
+        logger.info(f"✓ Committed {len(files)} file(s) to {branch}: {commit_id[:8]}")
+        return commit_url
 
 
 class GitHubProvider(GitProvider):
@@ -216,7 +226,36 @@ async def maybe_pull() -> None:
     docs_path = Path(os.environ["DOCS_LOCAL_PATH"])
 
     def _do_pull() -> None:
-        repo = git.Repo(str(docs_path))
-        repo.remotes.origin.pull()
+        logger.info("Pulling docs repo from remote...")
+        try:
+            repo = git.Repo(str(docs_path))
+            branch = repo.active_branch.name
+            logger.debug(f"Current branch: {branch}")
+            
+            # Fetch and hard reset to match remote
+            repo.remotes.origin.fetch()
+            repo.git.reset("--hard", f"origin/{branch}")
+            
+            commit = repo.head.commit
+            logger.info(
+                f"✓ Docs repo pulled and reset to {commit.hexsha[:8]} "
+                f"({commit.message.strip()[:60]})"
+            )
+        except Exception as e:
+            logger.error(f"Pull failed: {e}", exc_info=True)
 
     await asyncio.to_thread(_do_pull)
+
+
+async def periodic_pull() -> None:
+    """Background task that pulls the repo every PULL_INTERVAL_SECONDS."""
+    logger.info(
+        f"Periodic pull task started (interval: {PULL_INTERVAL_SECONDS}s)"
+    )
+    try:
+        while True:
+            await asyncio.sleep(PULL_INTERVAL_SECONDS)
+            await maybe_pull()
+    except asyncio.CancelledError:
+        logger.info("Periodic pull task cancelled")
+        raise

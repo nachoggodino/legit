@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -15,6 +16,13 @@ from routers.edit import edit_router
 from routers.files import files_router
 from services import git as git_service
 from services.index import load_index
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 _REQUIRED_ENV_VARS: list[str] = [
     "GIT_PROVIDER",
@@ -48,16 +56,43 @@ def _validate_env_vars() -> None:
 
 
 def _clone_repo_if_needed() -> None:
+    """Clone or reset the docs repo to match the remote origin."""
     docs_path = Path(os.environ["DOCS_LOCAL_PATH"])
-    if docs_path.exists() and (docs_path / ".git").exists():
-        return
-
-    docs_path.mkdir(parents=True, exist_ok=True)
-
     repo_url: str = os.environ["GIT_REPO_URL"]
-    token: str = os.environ["GIT_TOKEN"]
-
     provider: str = os.environ["GIT_PROVIDER"].lower()
+    token: str = os.environ["GIT_TOKEN"]
+    default_branch: str = os.environ["GIT_DEFAULT_BRANCH"]
+
+    logger.info(f"Ensuring repo at {docs_path}")
+    logger.info(f"Provider: {provider}")
+    logger.info(f"Repo URL: {repo_url}")
+    logger.info(f"Default branch: {default_branch}")
+
+    # If repo exists, do a hard reset to match origin
+    if docs_path.exists() and (docs_path / ".git").exists():
+        logger.info("Repo already exists, performing hard reset to origin...")
+        try:
+            repo = git.Repo(str(docs_path))
+            repo.remotes.origin.fetch()
+            repo.heads[default_branch].set_tracking_branch(
+                repo.remotes.origin.refs[default_branch]
+            )
+            repo.heads[default_branch].checkout()
+            repo.git.reset("--hard", f"origin/{default_branch}")
+            logger.info(
+                f"✓ Repo reset to origin/{default_branch} at {repo.head.commit.hexsha[:8]}"
+            )
+            return
+        except Exception as e:
+            logger.warning(
+                f"Hard reset failed, will re-clone. Error: {e}"
+            )
+            import shutil
+            shutil.rmtree(docs_path)
+
+    # Fresh clone
+    logger.info("Cloning repo from scratch...")
+    docs_path.mkdir(parents=True, exist_ok=True)
 
     # Construct authenticated URL based on provider
     # For GitLab: https://oauth2:<token>@host/path
@@ -77,16 +112,51 @@ def _clone_repo_if_needed() -> None:
         **os.environ,
         "GIT_TERMINAL_PROMPT": "0",
     }
-    git.Repo.clone_from(authenticated_url, str(docs_path), env=clone_env)
+    logger.info(f"Cloning to {docs_path}...")
+    repo = git.Repo.clone_from(authenticated_url, str(docs_path), env=clone_env)
+    logger.info(f"✓ Cloned successfully at {repo.head.commit.hexsha[:8]}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    logger.info("=" * 60)
+    logger.info("🚀 Copisaurus Backend Starting")
+    logger.info("=" * 60)
+
+    logger.info("[1/5] Validating environment variables...")
     _validate_env_vars()
+    logger.info("[1/5] ✓ Environment variables valid")
+
+    logger.info("[2/5] Cloning/resetting docs repository...")
     await asyncio.to_thread(_clone_repo_if_needed)
-    git_service.get_git_provider()
+    logger.info("[2/5] ✓ Docs repository ready")
+
+    logger.info("[3/5] Initializing Git provider...")
+    provider = git_service.get_git_provider()
+    logger.info(f"[3/5] ✓ Using {provider.__class__.__name__}")
+
+    logger.info("[4/5] Loading document index...")
     load_index()
-    yield
+    logger.info("[4/5] ✓ Document index loaded")
+
+    logger.info("[5/5] Starting periodic pull task...")
+    pull_task = asyncio.create_task(git_service.periodic_pull())
+    logger.info("[5/5] ✓ Periodic pull task started")
+
+    logger.info("=" * 60)
+    logger.info("✨ Backend ready and listening on 0.0.0.0:8000")
+    logger.info("=" * 60)
+
+    try:
+        yield
+    finally:
+        logger.info("Shutting down...")
+        pull_task.cancel()
+        try:
+            await pull_task
+        except asyncio.CancelledError:
+            pass
+        logger.info("Shutdown complete")
 
 
 def create_app() -> FastAPI:

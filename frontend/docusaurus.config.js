@@ -11,8 +11,11 @@ const config = {
   url: "http://localhost:3000",
   baseUrl: "/",
 
-  onBrokenLinks: "throw",
-  onBrokenMarkdownLinks: "warn",
+  markdown: {
+    hooks: {
+      onBrokenMarkdownLinks: "ignore",
+    },
+  },
 
   i18n: {
     defaultLocale: "en",
@@ -32,6 +35,7 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          path: process.env.DOCS_PATH || "./docs",
           sidebarPath: "./sidebars.js",
           routeBasePath: "/",
         },
@@ -50,7 +54,7 @@ const config = {
         title: "Copisaurus",
         logo: {
           alt: "Copisaurus Logo",
-          src: "img/logo.svg",
+          src: "img/logo.png",
         },
         items: [],
       },

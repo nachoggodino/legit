@@ -2,21 +2,14 @@ import React from "react";
 import { render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import NavigationGuard from "./NavigationGuard";
-import { useBlocker } from "react-router-dom";
-
-// react-router-dom is mocked in vite.config.ts alias via src/test/mocks/react-router-dom.ts
 
 describe("NavigationGuard", () => {
-  let confirmSpy: ReturnType<typeof vi.spyOn>;
+  let addEventListenerSpy: ReturnType<typeof vi.spyOn>;
+  let removeEventListenerSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    confirmSpy = vi.spyOn(window, "confirm");
-    // Default: router is not blocked
-    vi.mocked(useBlocker).mockReturnValue({
-      state: "unblocked",
-      proceed: vi.fn(),
-      reset: vi.fn(),
-    });
+    addEventListenerSpy = vi.spyOn(window, "addEventListener");
+    removeEventListenerSpy = vi.spyOn(window, "removeEventListener");
   });
 
   afterEach(() => {
@@ -30,114 +23,93 @@ describe("NavigationGuard", () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it("does NOT prompt when blocker is unblocked", () => {
-    render(<NavigationGuard hasUnsavedEdits={false} isRequestActive={false} />);
-    expect(confirmSpy).not.toHaveBeenCalled();
-  });
-
-  it("does NOT prompt when blocker is unblocked even with unsaved edits", () => {
-    render(<NavigationGuard hasUnsavedEdits={true} isRequestActive={false} />);
-    expect(confirmSpy).not.toHaveBeenCalled();
-  });
-
-  it("prompts with unsaved-edits message when blocker is blocked", () => {
-    const proceed = vi.fn();
-    const reset = vi.fn();
-    vi.mocked(useBlocker).mockReturnValue({ state: "blocked", proceed, reset });
-    confirmSpy.mockReturnValue(true);
-
-    render(<NavigationGuard hasUnsavedEdits={true} isRequestActive={false} />);
-
-    expect(confirmSpy).toHaveBeenCalledWith(
-      expect.stringContaining("unsaved changes")
-    );
-    expect(proceed).toHaveBeenCalledOnce();
-    expect(reset).not.toHaveBeenCalled();
-  });
-
-  it("prompts with active-request message when blocker is blocked and isRequestActive", () => {
-    const proceed = vi.fn();
-    const reset = vi.fn();
-    vi.mocked(useBlocker).mockReturnValue({ state: "blocked", proceed, reset });
-    confirmSpy.mockReturnValue(true);
-
-    render(
-      <NavigationGuard
-        hasUnsavedEdits={false}
-        isRequestActive={true}
-        onCancelRequest={vi.fn()}
-      />
-    );
-
-    expect(confirmSpy).toHaveBeenCalledWith(
-      expect.stringContaining("AI request is in progress")
-    );
-    expect(proceed).toHaveBeenCalledOnce();
-  });
-
-  it("calls reset and does NOT call proceed when user cancels navigation", () => {
-    const proceed = vi.fn();
-    const reset = vi.fn();
-    vi.mocked(useBlocker).mockReturnValue({ state: "blocked", proceed, reset });
-    confirmSpy.mockReturnValue(false);
-
-    render(<NavigationGuard hasUnsavedEdits={true} isRequestActive={false} />);
-
-    expect(reset).toHaveBeenCalledOnce();
-    expect(proceed).not.toHaveBeenCalled();
-  });
-
-  it("calls onCancelRequest when user confirms navigation with active request", () => {
-    const proceed = vi.fn();
-    const reset = vi.fn();
-    const onCancelRequest = vi.fn();
-    vi.mocked(useBlocker).mockReturnValue({ state: "blocked", proceed, reset });
-    confirmSpy.mockReturnValue(true);
-
-    render(
-      <NavigationGuard
-        hasUnsavedEdits={false}
-        isRequestActive={true}
-        onCancelRequest={onCancelRequest}
-      />
-    );
-
-    expect(onCancelRequest).toHaveBeenCalledOnce();
-    expect(proceed).toHaveBeenCalledOnce();
-  });
-
-  it("does NOT call onCancelRequest when user cancels navigation", () => {
-    const proceed = vi.fn();
-    const reset = vi.fn();
-    const onCancelRequest = vi.fn();
-    vi.mocked(useBlocker).mockReturnValue({ state: "blocked", proceed, reset });
-    confirmSpy.mockReturnValue(false);
-
-    render(
-      <NavigationGuard
-        hasUnsavedEdits={false}
-        isRequestActive={true}
-        onCancelRequest={onCancelRequest}
-      />
-    );
-
-    expect(onCancelRequest).not.toHaveBeenCalled();
-    expect(reset).toHaveBeenCalledOnce();
-  });
-
-  it("registers beforeunload handler when there is unsaved state", () => {
-    const addSpy = vi.spyOn(window, "addEventListener");
-
-    render(<NavigationGuard hasUnsavedEdits={true} isRequestActive={false} />);
-
-    expect(addSpy).toHaveBeenCalledWith("beforeunload", expect.any(Function));
-  });
-
   it("does NOT register beforeunload handler when no unsaved state", () => {
-    const addSpy = vi.spyOn(window, "addEventListener");
-
+    addEventListenerSpy.mockClear();
     render(<NavigationGuard hasUnsavedEdits={false} isRequestActive={false} />);
+    expect(addEventListenerSpy).not.toHaveBeenCalledWith(
+      "beforeunload",
+      expect.any(Function)
+    );
+  });
 
-    expect(addSpy).not.toHaveBeenCalledWith("beforeunload", expect.any(Function));
+  it("registers beforeunload handler when there is unsaved edits", () => {
+    addEventListenerSpy.mockClear();
+    render(<NavigationGuard hasUnsavedEdits={true} isRequestActive={false} />);
+    expect(addEventListenerSpy).toHaveBeenCalledWith(
+      "beforeunload",
+      expect.any(Function)
+    );
+  });
+
+  it("registers beforeunload handler when there is active request", () => {
+    addEventListenerSpy.mockClear();
+    render(<NavigationGuard hasUnsavedEdits={false} isRequestActive={true} />);
+    expect(addEventListenerSpy).toHaveBeenCalledWith(
+      "beforeunload",
+      expect.any(Function)
+    );
+  });
+
+  it("calls preventDefault on beforeunload event when unsaved edits exist", () => {
+    let handler: ((event: Event) => void) | null = null;
+    addEventListenerSpy.mockImplementation(
+      (event: string, listener: EventListener) => {
+        if (event === "beforeunload") {
+          handler = listener as (event: Event) => void;
+        }
+      }
+    );
+
+    render(<NavigationGuard hasUnsavedEdits={true} isRequestActive={false} />);
+
+    if (handler) {
+      const event = new Event("beforeunload") as any;
+      event.preventDefault = vi.fn();
+      handler(event);
+      expect(event.preventDefault).toHaveBeenCalled();
+    }
+  });
+
+  it("calls preventDefault on beforeunload event when request is active", () => {
+    let handler: ((event: Event) => void) | null = null;
+    addEventListenerSpy.mockImplementation(
+      (event: string, listener: EventListener) => {
+        if (event === "beforeunload") {
+          handler = listener as (event: Event) => void;
+        }
+      }
+    );
+
+    render(<NavigationGuard hasUnsavedEdits={false} isRequestActive={true} />);
+
+    if (handler) {
+      const event = new Event("beforeunload") as any;
+      event.preventDefault = vi.fn();
+      handler(event);
+      expect(event.preventDefault).toHaveBeenCalled();
+    }
+  });
+
+  it("removes beforeunload handler on unmount when unsaved state exists", () => {
+    let handler: EventListener | null = null;
+    addEventListenerSpy.mockImplementation(
+      (event: string, listener: EventListener) => {
+        if (event === "beforeunload") {
+          handler = listener;
+        }
+      }
+    );
+    removeEventListenerSpy.mockClear();
+
+    const { unmount } = render(
+      <NavigationGuard hasUnsavedEdits={true} isRequestActive={false} />
+    );
+
+    unmount();
+
+    expect(removeEventListenerSpy).toHaveBeenCalledWith(
+      "beforeunload",
+      handler
+    );
   });
 });

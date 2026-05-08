@@ -28,6 +28,9 @@ Thumbs.db
 # Local env files
 .env
 .env.*
+
+# Cloned docs repo (runtime artifact, populated by backend on startup)
+docs-repo/
 !.env.example
 
 # Node modules (if frontend is added)
@@ -36,6 +39,13 @@ node_modules/
 # Build outputs
 /dist/
 /build/
+
+# Docosaurus auto-generated folder
+.docusaurus/
+
+# Frontend build outputs
+frontend/build/
+frontend/.cache/
 
 # Jupyter Notebook checkpoints
 .ipynb_checkpoints/

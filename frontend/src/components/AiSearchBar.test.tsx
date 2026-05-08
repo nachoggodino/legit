@@ -10,21 +10,28 @@ vi.mock("../api/client");
 describe("AiSearchBar", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders search input and AI button", () => {
+  it("renders search input and both search buttons", () => {
     render(<AiSearchBar />);
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /search with ai/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /search$/i })).toBeInTheDocument(); // Regular search
+    expect(screen.getByRole("button", { name: /search with ai/i })).toBeInTheDocument(); // AI search
   });
 
-  it("AI button is disabled when input is empty", () => {
+  it("both buttons are enabled even when input is empty", () => {
     render(<AiSearchBar />);
-    expect(screen.getByRole("button", { name: /search with ai/i })).toBeDisabled();
+    const buttons = screen.getAllByRole("button");
+    buttons.forEach((btn) => {
+      expect(btn).not.toBeDisabled();
+    });
   });
 
-  it("AI button becomes enabled when user types a query", async () => {
+  it("buttons remain enabled when user types a query", async () => {
     render(<AiSearchBar />);
     await userEvent.type(screen.getByRole("searchbox"), "What is GPT-4?");
-    expect(screen.getByRole("button", { name: /search with ai/i })).not.toBeDisabled();
+    const buttons = screen.getAllByRole("button");
+    buttons.forEach((btn) => {
+      expect(btn).not.toBeDisabled();
+    });
   });
 
   it("disables input and shows status while loading", async () => {
