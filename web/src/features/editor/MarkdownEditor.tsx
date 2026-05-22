@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+const PREVIEW_DEBOUNCE_MS = 120;
+type LinkImpact = { path: string; line: number; snippet: string };
+type PendingConfirmation =
+  | { kind: "rename"; impacts: LinkImpact[]; toPath: string }
+  | { kind: "delete"; impacts: LinkImpact[] };
+
 export function MarkdownEditorLauncher({ repoSlug, documentPath }: { repoSlug: string; documentPath: string }) {
   const [open, setOpen] = useState(false);
 
@@ -19,6 +25,7 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
   const [preview, setPreview] = useState("");
   const [status, setStatus] = useState("Loading");
   const [instruction, setInstruction] = useState("");
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
 
   useEffect(() => {
     void fetch(`/api/repos/${repoSlug}/documents?path=${encodeURIComponent(documentPath)}`)
@@ -40,7 +47,7 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
         .then((response) => response.json())
         .then((payload) => setPreview(payload.html ?? ""))
         .catch(() => setPreview("<p>Preview failed.</p>"));
-    }, 120);
+    }, PREVIEW_DEBOUNCE_MS);
 
     return () => clearTimeout(handle);
   }, [source, path, repoSlug]);
@@ -71,32 +78,22 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
       headers: { "content-type": "application/json" },
       body: JSON.stringify(kind === "rename" ? { fromPath: targetPath, scanOnly: true } : { path: targetPath, scanOnly: true }),
     });
-    const payload = (await response.json()) as { impacts?: Array<{ path: string; line: number; snippet: string }> };
+    const payload = (await response.json()) as { impacts?: LinkImpact[] };
     return payload.impacts ?? [];
   }
 
-  function impactSummary(impacts: Array<{ path: string; line: number; snippet: string }>) {
-    if (impacts.length === 0) {
-      return "No inbound Markdown links were found.";
-    }
-
-    return [
-      `${impacts.length} inbound link${impacts.length === 1 ? "" : "s"} may need updates:`,
-      ...impacts.slice(0, 5).map((impact) => `${impact.path}:${impact.line} ${impact.snippet}`),
-    ].join("\n");
-  }
-
   async function rename() {
-    const toPath = window.prompt("Rename Markdown file to:", path);
-    if (!toPath) {
-      return;
-    }
     setStatus("Scanning links");
     const impacts = await fetchLinkImpact("rename", path);
-    if (!window.confirm(`Rename ${path} to ${toPath}?\n\n${impactSummary(impacts)}`)) {
-      setStatus("");
+    setPendingConfirmation({ kind: "rename", impacts, toPath: path });
+    setStatus("");
+  }
+
+  async function confirmRename() {
+    if (pendingConfirmation?.kind !== "rename" || !pendingConfirmation.toPath.trim()) {
       return;
     }
+    const toPath = pendingConfirmation.toPath.trim();
     setStatus("Renaming");
     const response = await fetch(`/api/repos/${repoSlug}/documents`, {
       method: "PATCH",
@@ -105,6 +102,7 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
     });
     if (response.ok) {
       setPath(toPath);
+      setPendingConfirmation(null);
     }
     setStatus(response.ok ? "Renamed and queued through commit workflow." : "Rename failed");
   }
@@ -112,8 +110,12 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
   async function remove() {
     setStatus("Scanning links");
     const impacts = await fetchLinkImpact("delete", path);
-    if (!window.confirm(`Delete ${path}?\n\n${impactSummary(impacts)}`)) {
-      setStatus("");
+    setPendingConfirmation({ kind: "delete", impacts });
+    setStatus("");
+  }
+
+  async function confirmDelete() {
+    if (pendingConfirmation?.kind !== "delete") {
       return;
     }
     setStatus("Deleting");
@@ -122,6 +124,9 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path, confirmed: true }),
     });
+    if (response.ok) {
+      setPendingConfirmation(null);
+    }
     setStatus(response.ok ? "Deleted and queued through commit workflow." : "Delete failed");
   }
 
@@ -157,6 +162,43 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
           <button type="button" disabled={!instruction.trim()} onClick={() => void applyAiEdit()}>Apply AI Edit</button>
           <span>{status}</span>
         </div>
+        {pendingConfirmation ? (
+          <section className="editor-confirmation" aria-label={`${pendingConfirmation.kind} confirmation`}>
+            <div>
+              <strong>{pendingConfirmation.kind === "rename" ? "Confirm rename" : "Confirm delete"}</strong>
+              <span>{path}</span>
+            </div>
+            {pendingConfirmation.kind === "rename" ? (
+              <input
+                aria-label="New Markdown path"
+                value={pendingConfirmation.toPath}
+                onChange={(event) => setPendingConfirmation({ ...pendingConfirmation, toPath: event.target.value })}
+              />
+            ) : null}
+            <div className="editor-impact-list">
+              {pendingConfirmation.impacts.length === 0 ? (
+                <span>No inbound Markdown links were found.</span>
+              ) : (
+                pendingConfirmation.impacts.slice(0, 5).map((impact) => (
+                  <span key={`${impact.path}:${impact.line}`}>
+                    {impact.path}:{impact.line} {impact.snippet}
+                  </span>
+                ))
+              )}
+            </div>
+            <div className="editor-confirmation-actions">
+              <button
+                type="button"
+                onClick={() =>
+                  pendingConfirmation.kind === "rename" ? void confirmRename() : void confirmDelete()
+                }
+              >
+                Confirm
+              </button>
+              <button type="button" onClick={() => setPendingConfirmation(null)}>Cancel</button>
+            </div>
+          </section>
+        ) : null}
         <div className="editor-panes">
           <textarea aria-label="Raw Markdown" value={source} onChange={(event) => setSource(event.target.value)} />
           <div className="editor-divider" aria-hidden="true" />

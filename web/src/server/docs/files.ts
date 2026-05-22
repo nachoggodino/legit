@@ -10,6 +10,7 @@ import { resolveDocsRoot, resolveDocumentPath, validateRelativePath } from "./pa
 
 export type DocumentFileOperation = "create" | "edit" | "rename" | "delete";
 type CommitCapableRepo = Pick<RepositoryConfig, "id" | "docsPath"> & Partial<Pick<RepositoryConfig, "commit">>;
+const LINK_IMPACT_SCAN_TIMEOUT_MS = 1500;
 
 function atomicWriteFile(filePath: string, source: string): void {
   const temporaryPath = path.join(path.dirname(filePath), `.${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`);
@@ -163,7 +164,7 @@ export async function scanLinkImpact(
   const runner = options.runner ?? defaultRipgrepRunner;
   const { stdout } = await runner(buildRipgrepArgs(query, { maxResults: 25 }), {
     cwd: docsRoot,
-    timeoutMs: options.timeoutMs ?? 1500,
+    timeoutMs: options.timeoutMs ?? LINK_IMPACT_SCAN_TIMEOUT_MS,
   });
 
   return stdout

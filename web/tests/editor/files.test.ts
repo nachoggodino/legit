@@ -67,7 +67,14 @@ describe("Markdown file operations", () => {
       },
     });
 
-    expect(result.commit).toEqual({ committed: true, commit: "abc123" });
+    expect(result.commit).toEqual({
+      committed: true,
+      commit: "abc123",
+      mode: "direct",
+      branch: null,
+      remoteUrl: null,
+      phase7Pending: false,
+    });
     expect(calls).toEqual([
       ["add", "--", "docs/committed.md"],
       ["status", "--porcelain", "--", "docs/committed.md"],

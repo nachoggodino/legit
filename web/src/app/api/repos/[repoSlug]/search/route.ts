@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { canReadRepo, getCurrentUser } from "@/server/auth";
-import { loadConfig } from "@/server/config";
+import { canReadRepo } from "@/server/auth";
+import { resolveRepoRequest } from "@/server/repos/request";
 import { searchRepositoryDocs } from "@/server/search";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request, { params }: { params: Promise<{ repoSlug: string }> }) {
   const { repoSlug } = await params;
-  const config = loadConfig();
-  const repo = config.repos.find((candidate) => candidate.slug === repoSlug);
-  const user = await getCurrentUser();
+  const { repo, user } = await resolveRepoRequest(repoSlug);
 
   if (!repo) {
     return NextResponse.json({ error: "Repository not found." }, { status: 404 });

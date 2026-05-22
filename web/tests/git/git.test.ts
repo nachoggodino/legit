@@ -3,19 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildGitAuthEnv, cloneOrPullRepository, redactGitUrl, resolveRepoPath } from "@/server/git";
-import type { RepositoryConfig } from "@/server/config";
+import { commitDocumentChange } from "@/server/git/commit";
+import { makeTestRepo } from "../fixtures/config";
 
-const repo: RepositoryConfig = {
-  id: "research",
-  slug: "research",
-  name: "Research Wiki",
-  provider: "github",
-  repoUrl: "https://github.com/example/research.git",
-  defaultBranch: "main",
-  docsPath: "docs",
-  visibility: "private",
-  commit: { mode: "merge-request", targetBranch: "main", branchPrefix: "copisaurus/" },
-};
+const repo = makeTestRepo();
 
 describe("git helpers", () => {
   it("builds transient askpass auth env and redacts credentialed URLs", () => {
@@ -111,5 +102,32 @@ describe("git helpers", () => {
 
     expect(fs.readFileSync(gitConfigPath, "utf8")).toContain(repo.repoUrl);
     expect(fs.readFileSync(gitConfigPath, "utf8")).not.toContain("secret-token");
+  });
+
+  it("returns explicit phase 7 pending metadata for non-direct commit modes", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "copisaurus-commit-"));
+    fs.mkdirSync(path.join(root, repo.id, "docs"), { recursive: true });
+    fs.writeFileSync(path.join(root, repo.id, "docs", "index.md"), "# Commit", "utf8");
+    const calls: string[][] = [];
+
+    const result = await commitDocumentChange(repo, "edit", ["index.md"], {
+      reposRoot: root,
+      runner: async (args) => {
+        calls.push(args);
+        if (args[0] === "status") return "M docs/index.md";
+        if (args[0] === "rev-parse") return "abc123";
+        return "";
+      },
+    });
+
+    expect(calls[0]).toEqual(["checkout", "-B", expect.stringMatching(/^copisaurus\//), "main"]);
+    expect(result).toEqual({
+      committed: true,
+      commit: "abc123",
+      mode: "merge-request",
+      branch: expect.stringMatching(/^copisaurus\//),
+      remoteUrl: null,
+      phase7Pending: true,
+    });
   });
 });

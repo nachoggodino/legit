@@ -1,22 +1,9 @@
 import { NextResponse } from "next/server";
 import { requestManualRepoSync } from "@/server/sync";
 import { AuthenticationRequiredError, AuthorizationError } from "@/server/auth/types";
+import { isSameOriginRequest } from "@/server/http/origin";
 
 export const runtime = "nodejs";
-
-function isSameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-
-  if (!origin) {
-    return false;
-  }
-
-  try {
-    return new URL(origin).origin === new URL(request.url).origin;
-  } catch {
-    return false;
-  }
-}
 
 function wantsHtml(request: Request): boolean {
   return request.headers.get("accept")?.includes("text/html") ?? false;
@@ -31,7 +18,7 @@ export async function POST(request: Request, context: { params: Promise<{ repoId
   const requestId = crypto.randomUUID();
   const html = wantsHtml(request);
 
-  if (!isSameOrigin(request)) {
+  if (!isSameOriginRequest(request)) {
     if (html) {
       return adminRedirect(request);
     }

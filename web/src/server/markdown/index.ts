@@ -1,4 +1,13 @@
 import crypto from "node:crypto";
+import remarkFrontmatter from "remark-frontmatter";
+import remarkGfm from "remark-gfm";
+import remarkParse from "remark-parse";
+import remarkRehype from "remark-rehype";
+import rehypeSlug from "rehype-slug";
+import rehypeStringify from "rehype-stringify";
+import { unified } from "unified";
+import { visit } from "unist-util-visit";
+import { parse as parseYaml } from "yaml";
 import { resolveRelativeMarkdownLink, validateRelativePath } from "@/server/docs";
 
 export type MarkdownDocument = {
@@ -20,34 +29,22 @@ export type MarkdownRenderResult = {
   contentHash: string;
 };
 
-const htmlEscapes: Record<string, string> = {
-  "&": "&amp;",
-  "<": "&lt;",
-  ">": "&gt;",
-  '"': "&quot;",
-  "'": "&#39;",
+type HastNode = {
+  type: string;
+  tagName?: string;
+  value?: string;
+  properties?: Record<string, unknown>;
+  children?: HastNode[];
 };
 
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => htmlEscapes[char]);
-}
+type RenderContext = {
+  currentPath: string;
+  repoSlug?: string;
+  headings: MarkdownHeading[];
+};
 
-function slugify(value: string): string {
-  const slug = value
-    .toLowerCase()
-    .replace(/<[^>]+>/g, "")
-    .replace(/[`*_~[\]()#]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-
-  return slug || "section";
-}
-
-function uniqueSlug(base: string, used: Map<string, number>): string {
-  const count = used.get(base) ?? 0;
-  used.set(base, count + 1);
-  return count === 0 ? base : `${base}-${count + 1}`;
-}
+const allowedFrontmatterValue = (value: unknown): value is string | boolean | number =>
+  typeof value === "string" || typeof value === "boolean" || typeof value === "number";
 
 function parseFrontmatter(source: string): { frontmatter: MarkdownRenderResult["frontmatter"]; body: string } {
   if (!source.startsWith("---\n")) {
@@ -62,46 +59,38 @@ function parseFrontmatter(source: string): { frontmatter: MarkdownRenderResult["
   const raw = source.slice(4, end).trim();
   const body = source.slice(end + 4).replace(/^\r?\n/, "");
   const frontmatter: MarkdownRenderResult["frontmatter"] = {};
+  let parsed: unknown;
 
-  for (const line of raw.split(/\r?\n/)) {
-    const match = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
-    if (!match) {
-      continue;
-    }
+  try {
+    parsed = parseYaml(raw);
+  } catch {
+    return { frontmatter, body };
+  }
 
-    const [, key, rawValue] = match;
-    const trimmed = rawValue.trim().replace(/^["']|["']$/g, "");
-    if (trimmed === "true" || trimmed === "false") {
-      frontmatter[key] = trimmed === "true";
-    } else if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-      frontmatter[key] = Number(trimmed);
-    } else {
-      frontmatter[key] = trimmed;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return { frontmatter, body };
+  }
+
+  for (const [key, value] of Object.entries(parsed)) {
+    if (allowedFrontmatterValue(value)) {
+      frontmatter[key] = value;
     }
   }
 
   return { frontmatter, body };
 }
 
-function renderInline(value: string, options: { currentPath: string; repoSlug?: string }): string {
-  let html = escapeHtml(value);
+function textContent(node: HastNode): string {
+  if (node.type === "text") {
+    return node.value ?? "";
+  }
 
-  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match, alt: string, href: string) => {
-    const safeHref = normalizeRenderedHref(href, options, { asset: true });
-    return `<img src="${escapeHtml(safeHref)}" alt="${escapeHtml(alt)}">`;
-  });
+  return node.children?.map(textContent).join("") ?? "";
+}
 
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match, label: string, href: string) => {
-    const safeHref = normalizeRenderedHref(href, options);
-    return `<a href="${escapeHtml(safeHref)}">${label}</a>`;
-  });
-
-  html = html
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*([^*]+)\*/g, "<em>$1</em>");
-
-  return html;
+function hasClass(node: HastNode, className: string): boolean {
+  const classNames = node.properties?.className;
+  return Array.isArray(classNames) && classNames.includes(className);
 }
 
 function normalizeRenderedHref(
@@ -141,62 +130,198 @@ function normalizeRenderedHref(
   return options.repoSlug ? `/${options.repoSlug}${resolved ? `/${resolved}` : ""}` : resolved;
 }
 
-function isTable(lines: string[], index: number): boolean {
+function isTableStart(lines: string[], index: number): boolean {
   return Boolean(lines[index]?.includes("|") && /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[index + 1] ?? ""));
 }
 
-function renderTable(lines: string[], start: number, options: { currentPath: string; repoSlug?: string }): { html: string; next: number } {
-  const rows: string[][] = [];
-  let index = start;
+function preserveLegacyListTableBreaks(source: string): string {
+  const lines = source.replace(/\r\n/g, "\n").split("\n");
+  const nextLines: string[] = [];
 
-  while (index < lines.length && lines[index].includes("|") && lines[index].trim()) {
-    if (index !== start + 1) {
-      rows.push(
-        lines[index]
-          .trim()
-          .replace(/^\||\|$/g, "")
-          .split("|")
-          .map((cell) => renderInline(cell.trim(), options)),
-      );
+  for (let index = 0; index < lines.length; index += 1) {
+    const previous = nextLines[nextLines.length - 1] ?? "";
+    if (isTableStart(lines, index) && /^\s*[-*]\s+/.test(previous)) {
+      nextLines.push("");
     }
-    index += 1;
+    nextLines.push(lines[index]);
   }
 
-  const [head = [], ...body] = rows;
-  const thead = `<thead><tr>${head.map((cell) => `<th>${cell}</th>`).join("")}</tr></thead>`;
-  const tbody = `<tbody>${body.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>`;
-  return { html: `<table>${thead}${tbody}</table>`, next: index };
+  return nextLines.join("\n");
 }
 
-function renderCodeBlock(language: string, source: string): string {
-  if (language.toLowerCase() === "mermaid") {
-    return `<pre class="mermaid-todo"><code class="language-mermaid">${escapeHtml(source)}</code></pre><p class="muted">TODO: Mermaid rendering is intentionally disabled until a sanitized renderer and browser test boundary are added.</p>`;
+function rewriteLinksAndImages(context: RenderContext) {
+  return (tree: HastNode) => {
+    visit(tree, "element", (node: HastNode) => {
+      if (node.tagName === "a" && typeof node.properties?.href === "string") {
+        node.properties.href = normalizeRenderedHref(node.properties.href, context);
+      }
+
+      if (node.tagName === "img" && typeof node.properties?.src === "string") {
+        node.properties.src = normalizeRenderedHref(node.properties.src, context, { asset: true });
+      }
+    });
+  };
+}
+
+function collectHeadingsAndAddAnchors(context: RenderContext) {
+  return (tree: HastNode) => {
+    visit(tree, "element", (node: HastNode) => {
+      const match = /^h([1-6])$/.exec(node.tagName ?? "");
+      if (!match) {
+        return;
+      }
+
+      const level = Number(match[1]);
+      const id = typeof node.properties?.id === "string" ? node.properties.id : undefined;
+      const text = textContent(node).replace(/\s+#*$/, "");
+
+      if (!id) {
+        return;
+      }
+
+      context.headings.push({ id, text, level });
+      node.children = [
+        {
+          type: "element",
+          tagName: "a",
+          properties: { className: ["heading-anchor"], href: `#${id}`, ariaLabel: `Link to ${text}` },
+          children: [{ type: "text", value: "#" }],
+        },
+        ...(node.children ?? []),
+      ];
+    });
+  };
+}
+
+function splitTextByPattern(source: string, pattern: RegExp, className: string): HastNode[] {
+  const nodes: HastNode[] = [];
+  let cursor = 0;
+
+  for (const match of source.matchAll(pattern)) {
+    const index = match.index ?? 0;
+    if (index > cursor) {
+      nodes.push({ type: "text", value: source.slice(cursor, index) });
+    }
+    nodes.push({
+      type: "element",
+      tagName: "span",
+      properties: { className: [className] },
+      children: [{ type: "text", value: match[0] }],
+    });
+    cursor = index + match[0].length;
   }
 
-  const className = language ? ` class="language-${escapeHtml(language)}"` : "";
-  return `<pre><code${className}>${highlightCode(source, language)}</code></pre>`;
+  if (cursor < source.length) {
+    nodes.push({ type: "text", value: source.slice(cursor) });
+  }
+
+  return nodes.length > 0 ? nodes : [{ type: "text", value: source }];
 }
 
-function highlightCode(source: string, language: string): string {
-  const escaped = escapeHtml(source);
+function highlightText(source: string, language: string): HastNode[] {
   const normalized = language.toLowerCase();
 
   if (["js", "jsx", "ts", "tsx", "javascript", "typescript"].includes(normalized)) {
-    return escaped.replace(
+    return splitTextByPattern(
+      source,
       /\b(const|let|var|function|return|import|export|from|type|interface|class|new|async|await|if|else)\b/g,
-      '<span class="token keyword">$1</span>',
+      "token keyword",
     );
   }
 
   if (["json", "jsonc"].includes(normalized)) {
-    return escaped.replace(/(&quot;[^&]+&quot;)(\s*:)/g, '<span class="token string">$1</span>$2');
+    return splitTextByPattern(source, /"[^"\n]+(?="\s*:)/g, "token string");
   }
 
   if (["sh", "bash", "shell"].includes(normalized)) {
-    return escaped.replace(/(^|\n)(\s*#.*)/g, '$1<span class="token comment">$2</span>');
+    return splitTextByPattern(source, /(^|\n)\s*#.*/g, "token comment");
   }
 
-  return escaped;
+  return [{ type: "text", value: source }];
+}
+
+function codeLanguage(node: HastNode): string {
+  const classNames = node.properties?.className;
+  if (!Array.isArray(classNames)) {
+    return "";
+  }
+
+  const languageClass = classNames.find((className) => typeof className === "string" && className.startsWith("language-"));
+  return typeof languageClass === "string" ? languageClass.slice("language-".length) : "";
+}
+
+function enhanceCodeBlocks() {
+  return (tree: HastNode) => {
+    visit(tree, "element", (node: HastNode) => {
+      if (node.tagName === "input" && node.properties?.type === "checkbox") {
+        node.properties = node.properties.checked
+          ? { type: "checkbox", disabled: true, checked: true }
+          : { type: "checkbox", disabled: true };
+        return;
+      }
+
+      if (node.tagName !== "pre") {
+        return;
+      }
+
+      const code = node.children?.find((child) => child.tagName === "code");
+      if (!code) {
+        return;
+      }
+
+      const language = codeLanguage(code);
+      const source = textContent(code);
+
+      if (language.toLowerCase() === "mermaid") {
+        node.properties = { ...(node.properties ?? {}), className: ["mermaid-todo"] };
+        return;
+      }
+
+      code.children = highlightText(source, language);
+    });
+  };
+}
+
+function disableMermaidRenderingNotice() {
+  return (tree: HastNode) => {
+    const children = tree.children;
+    if (!children) {
+      return;
+    }
+
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      const node = children[index];
+      if (node.tagName !== "pre" || !hasClass(node, "mermaid-todo")) {
+        continue;
+      }
+
+      children.splice(index + 1, 0, {
+        type: "element",
+        tagName: "p",
+        properties: { className: ["muted"] },
+        children: [
+          {
+            type: "text",
+            value: "TODO: Mermaid rendering is intentionally disabled until a sanitized renderer and browser test boundary are added.",
+          },
+        ],
+      });
+    }
+  };
+}
+
+function createMarkdownProcessor(context: RenderContext) {
+  return unified()
+    .use(remarkParse)
+    .use(remarkFrontmatter, ["yaml"])
+    .use(remarkGfm)
+    .use(remarkRehype)
+    .use(rehypeSlug)
+    .use(rewriteLinksAndImages, context)
+    .use(collectHeadingsAndAddAnchors, context)
+    .use(enhanceCodeBlocks)
+    .use(disableMermaidRenderingNotice)
+    .use(rehypeStringify);
 }
 
 export function renderMarkdown(
@@ -207,102 +332,11 @@ export function renderMarkdown(
   const { frontmatter, body } = parseFrontmatter(source);
   const contentHash = crypto.createHash("sha256").update(body).digest("hex");
   const headings: MarkdownHeading[] = [];
-  const usedSlugs = new Map<string, number>();
-  const lines = body.replace(/\r\n/g, "\n").split("\n");
-  const html: string[] = [];
-  let paragraph: string[] = [];
-  let listItems: string[] = [];
-  let inCode: { language: string; lines: string[] } | null = null;
-
-  function flushParagraph() {
-    if (paragraph.length > 0) {
-      html.push(`<p>${renderInline(paragraph.join(" "), { currentPath, repoSlug: options.repoSlug })}</p>`);
-      paragraph = [];
-    }
-  }
-
-  function flushList() {
-    if (listItems.length > 0) {
-      html.push(`<ul>${listItems.join("")}</ul>`);
-      listItems = [];
-    }
-  }
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-
-    if (inCode) {
-      if (line.startsWith("```")) {
-        html.push(renderCodeBlock(inCode.language, inCode.lines.join("\n")));
-        inCode = null;
-      } else {
-        inCode.lines.push(line);
-      }
-      continue;
-    }
-
-    if (line.startsWith("```")) {
-      flushParagraph();
-      flushList();
-      inCode = { language: line.slice(3).trim().split(/\s+/)[0] ?? "", lines: [] };
-      continue;
-    }
-
-    if (!line.trim()) {
-      flushParagraph();
-      flushList();
-      continue;
-    }
-
-    if (isTable(lines, index)) {
-      flushParagraph();
-      flushList();
-      const table = renderTable(lines, index, { currentPath, repoSlug: options.repoSlug });
-      html.push(table.html);
-      index = table.next - 1;
-      continue;
-    }
-
-    const heading = /^(#{1,6})\s+(.+)$/.exec(line);
-    if (heading) {
-      flushParagraph();
-      flushList();
-      const level = heading[1].length;
-      const text = heading[2].replace(/\s+#*$/, "");
-      const id = uniqueSlug(slugify(text), usedSlugs);
-      headings.push({ id, text, level });
-      html.push(`<h${level} id="${id}"><a class="heading-anchor" href="#${id}" aria-label="Link to ${escapeHtml(text)}">#</a>${renderInline(text, { currentPath, repoSlug: options.repoSlug })}</h${level}>`);
-      continue;
-    }
-
-    const list = /^\s*[-*]\s+(\[[ xX]\]\s+)?(.+)$/.exec(line);
-    if (list) {
-      flushParagraph();
-      const checked = list[1]?.toLowerCase().includes("x") ?? false;
-      const checkbox = list[1] ? `<input type="checkbox" disabled${checked ? " checked" : ""}> ` : "";
-      listItems.push(`<li>${checkbox}${renderInline(list[2], { currentPath, repoSlug: options.repoSlug })}</li>`);
-      continue;
-    }
-
-    if (/^>\s+/.test(line)) {
-      flushParagraph();
-      flushList();
-      html.push(`<blockquote>${renderInline(line.replace(/^>\s+/, ""), { currentPath, repoSlug: options.repoSlug })}</blockquote>`);
-      continue;
-    }
-
-    paragraph.push(line.trim());
-  }
-
-  flushParagraph();
-  flushList();
-
-  if (inCode) {
-    html.push(renderCodeBlock(inCode.language, inCode.lines.join("\n")));
-  }
+  const context: RenderContext = { currentPath, repoSlug: options.repoSlug, headings };
+  const html = String(createMarkdownProcessor(context).processSync(preserveLegacyListTableBreaks(source)));
 
   return {
-    html: html.join("\n"),
+    html,
     title: typeof frontmatter.title === "string" ? frontmatter.title : headings[0]?.text ?? null,
     headings,
     frontmatter,

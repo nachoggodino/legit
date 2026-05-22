@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { canEditRepo, canUseAi, getCurrentUser } from "@/server/auth";
+import { canEditRepo, canUseAi } from "@/server/auth";
 import { makeDocsEditMessages, requestOpenAiCompatibleEdit } from "@/server/ai";
-import { loadConfig } from "@/server/config";
 import { validateRelativePath } from "@/server/docs";
+import { rejectCrossOriginMutation } from "@/server/http/origin";
+import { resolveRepoRequest } from "@/server/repos/request";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ repoSlug: string }> }) {
+  const invalidOrigin = rejectCrossOriginMutation(request);
+  if (invalidOrigin) return invalidOrigin;
+
   const { repoSlug } = await params;
-  const config = loadConfig();
-  const repo = config.repos.find((candidate) => candidate.slug === repoSlug);
-  const user = await getCurrentUser();
+  const { config, repo, user } = await resolveRepoRequest(repoSlug);
 
   if (!repo) {
     return NextResponse.json({ error: "Repository not found." }, { status: 404 });

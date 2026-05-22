@@ -1,5 +1,5 @@
 import type { CopisaurusConfig, RepositoryConfig } from "@/server/config";
-import { readCandidateFiles, searchRepositoryDocs } from "@/server/search";
+import { AI_CONTEXT_SEARCH_TIMEOUT_MS, readCandidateFiles, searchRepositoryDocs } from "@/server/search";
 
 export class AiConfigError extends Error {
   constructor(message: string) {
@@ -27,7 +27,7 @@ function resolveAiConfig(config: CopisaurusConfig, env: NodeJS.ProcessEnv = proc
   return {
     baseUrl: baseUrl.replace(/\/+$/, ""),
     apiKey,
-    model: config.ai.defaultModel,
+    model: env.AI_MODEL?.trim() || config.ai.defaultModel,
   };
 }
 
@@ -48,7 +48,7 @@ export async function buildDocsChatContext(
   const limits = resolveContextLimits(options.maxContextTokens ?? 150000);
   const results = await searchRepositoryDocs(repo, question, {
     maxResults: limits.maxResults,
-    timeoutMs: 2500,
+    timeoutMs: AI_CONTEXT_SEARCH_TIMEOUT_MS,
     reposRoot: options.reposRoot,
   });
   const uniquePaths = [...new Set(results.map((result) => result.path))].slice(0, limits.maxFiles);

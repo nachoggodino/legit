@@ -26,6 +26,9 @@ export class SearchError extends Error {
   }
 }
 
+export const SEARCH_TIMEOUT_MS = 3000;
+export const AI_CONTEXT_SEARCH_TIMEOUT_MS = 2500;
+
 export function buildRipgrepArgs(query: string, options: { maxResults: number }): string[] {
   return [
     "--json",
@@ -176,7 +179,7 @@ export async function searchRepositoryDocs(
   const runner = options.runner ?? defaultRipgrepRunner;
   const { stdout } = await runner(buildRipgrepArgs(trimmed, { maxResults }), {
     cwd: docsRoot,
-    timeoutMs: options.timeoutMs ?? 3000,
+    timeoutMs: options.timeoutMs ?? SEARCH_TIMEOUT_MS,
   });
 
   return enrichSearchResults(parseRipgrepJson(repo.id, stdout, maxResults), { db: options.db });

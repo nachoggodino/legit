@@ -1,38 +1,18 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { eq } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
-import { createSqliteDatabase, getRepoSyncState, importRepositoriesFromConfig } from "@/server/db";
+import { createSqliteDatabase, documentMetadata, getRepoSyncState, importRepositoriesFromConfig } from "@/server/db";
 import { createSyncScheduler, requestManualRepoSync, syncRepository, withRepoLock } from "@/server/sync";
 import { AuthorizationError, type AuthUser } from "@/server/auth/types";
-import type { CopisaurusConfig, RepositoryConfig } from "@/server/config";
+import { makeTestConfig, makeTestRepo } from "../fixtures/config";
 
-const repo: RepositoryConfig = {
-  id: "research",
-  slug: "research",
-  name: "Research Wiki",
+const repo = makeTestRepo({
   provider: "gitlab",
   repoUrl: "https://gitlab.example.com/group/research.git",
-  defaultBranch: "main",
-  docsPath: "docs",
-  visibility: "private",
-  commit: { mode: "merge-request", targetBranch: "main", branchPrefix: "copisaurus/" },
-};
-
-const config: CopisaurusConfig = {
-  app: { name: "Copisaurus" },
-  auth: { defaultRole: "viewer", admins: { emails: [], domains: [] } },
-  ai: {
-    enabled: false,
-    baseUrlEnv: "AI_BASE_URL",
-    apiKeyEnv: "AI_API_KEY",
-    defaultModel: "gpt-4o",
-    maxContextTokens: 150000,
-    allowAnonymous: false,
-  },
-  sync: { intervalSeconds: 5, pullOnStartup: true, reindexOnChange: true },
-  repos: [repo],
-};
+});
+const config = makeTestConfig({ repos: [repo] });
 
 const admin: AuthUser = { id: "admin", email: "admin@example.com", role: "admin" };
 
@@ -64,6 +44,44 @@ describe("repo sync", () => {
         status: "succeeded",
         lastSyncedCommit: "commit123",
         lastError: null,
+      });
+    } finally {
+      handle.sqlite.close();
+    }
+  });
+
+  it("reindexes repository documents after a changed sync commit when enabled", async () => {
+    const handle = createSqliteDatabase(":memory:");
+    const reposRoot = fs.mkdtempSync(path.join(os.tmpdir(), "copisaurus-sync-"));
+    const repoRoot = path.join(reposRoot, repo.id);
+
+    try {
+      importRepositoriesFromConfig(handle.db, [repo]);
+      await syncRepository(handle.db, repo, {
+        reposRoot,
+        env: { COPISAURUS_GITLAB_TOKEN: "secret" },
+        reindexOnChange: true,
+        runner: async (args) => {
+          if (args[0] === "clone") {
+            fs.mkdirSync(path.join(repoRoot, ".git"), { recursive: true });
+            fs.mkdirSync(path.join(repoRoot, "docs"), { recursive: true });
+            fs.writeFileSync(path.join(repoRoot, "docs", "index.md"), "# Synced\n\nFresh metadata.", "utf8");
+          }
+          return args[0] === "rev-parse" ? "commit123" : "";
+        },
+      });
+
+      const metadata = handle.db
+        .select()
+        .from(documentMetadata)
+        .where(eq(documentMetadata.repoId, repo.id))
+        .get();
+
+      expect(metadata).toMatchObject({
+        path: "index.md",
+        title: "Synced",
+        summary: "Fresh metadata.",
+        lastIndexedCommit: "commit123",
       });
     } finally {
       handle.sqlite.close();

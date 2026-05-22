@@ -1,8 +1,9 @@
 import { loadConfig, type CopisaurusConfig, type RepositoryConfig } from "@/server/config";
-import { getRuntimeDatabase, importRepositoriesFromConfig, markRepoSyncFailed, markRepoSyncStarted, markRepoSyncSucceeded } from "@/server/db";
+import { getRepoSyncState, getRuntimeDatabase, importRepositoriesFromConfig, markRepoSyncFailed, markRepoSyncStarted, markRepoSyncSucceeded } from "@/server/db";
 import type { DbClient } from "@/server/db";
 import { cloneOrPullRepository, redactGitUrl, type GitRunner, type SecretEnv } from "@/server/git";
 import type { AuthUser } from "@/server/auth/types";
+import { reindexRepositoryDocuments } from "@/server/search";
 
 export type RepoSyncStatus = "idle" | "syncing" | "succeeded" | "failed";
 
@@ -43,14 +44,19 @@ export async function syncRepository(
     runner?: GitRunner;
     reposRoot?: string;
     env?: SecretEnv;
+    reindexOnChange?: boolean;
   } = {},
 ): Promise<{ repoId: string; commit: string }> {
   return withRepoLock(repo.id, async () => {
+    const previousCommit = getRepoSyncState(db, repo.id)?.lastSyncedCommit ?? null;
     markRepoSyncStarted(db, repo.id);
 
     try {
       const result = await cloneOrPullRepository(repo, options);
       markRepoSyncSucceeded(db, repo.id, result.commit);
+      if (options.reindexOnChange && previousCommit !== result.commit) {
+        reindexRepositoryDocuments(db, repo, { reposRoot: options.reposRoot, commit: result.commit });
+      }
       return { repoId: repo.id, commit: result.commit };
     } catch (error) {
       const message = redactGitUrl(error instanceof Error ? error.message : String(error));
@@ -67,6 +73,7 @@ export async function syncConfiguredRepositories(
     runner?: GitRunner;
     reposRoot?: string;
     env?: SecretEnv;
+    reindexOnChange?: boolean;
   } = {},
 ): Promise<void> {
   await Promise.all(repos.map((repo) => syncRepository(db, repo, options)));
@@ -100,6 +107,7 @@ export async function requestManualRepoSync(
     runner: options.runner,
     reposRoot: options.reposRoot,
     env: options.env,
+    reindexOnChange: config.sync.reindexOnChange,
   });
 }
 
@@ -138,6 +146,7 @@ export function createSyncScheduler(
         runner: options.runner,
         reposRoot: options.reposRoot,
         env: options.env,
+        reindexOnChange: config.sync.reindexOnChange,
       });
     } catch (error) {
       console.error("Scheduled repository sync failed", {

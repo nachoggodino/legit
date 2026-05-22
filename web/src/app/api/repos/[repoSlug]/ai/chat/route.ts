@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { canReadRepo, canUseAi, getCurrentUser } from "@/server/auth";
+import { canReadRepo, canUseAi } from "@/server/auth";
 import { buildDocsChatContext, makeDocsChatMessages, streamOpenAiCompatibleChat } from "@/server/ai";
-import { loadConfig } from "@/server/config";
+import { resolveRepoRequest } from "@/server/repos/request";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request, { params }: { params: Promise<{ repoSlug: string }> }) {
   const { repoSlug } = await params;
-  const config = loadConfig();
-  const repo = config.repos.find((candidate) => candidate.slug === repoSlug);
-  const user = await getCurrentUser();
+  const { config, repo, user } = await resolveRepoRequest(repoSlug);
 
   if (!repo) {
     return NextResponse.json({ error: "Repository not found." }, { status: 404 });

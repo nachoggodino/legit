@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import { NextResponse } from "next/server";
-import { canReadRepo, getCurrentUser } from "@/server/auth";
-import { loadConfig } from "@/server/config";
+import { canReadRepo } from "@/server/auth";
 import { resolveDocumentPath } from "@/server/docs";
+import { resolveRepoRequest } from "@/server/repos/request";
 
 export const runtime = "nodejs";
 
@@ -12,14 +12,11 @@ const contentTypes: Record<string, string> = {
   ".jpeg": "image/jpeg",
   ".gif": "image/gif",
   ".webp": "image/webp",
-  ".svg": "image/svg+xml",
 };
 
 export async function GET(request: Request, { params }: { params: Promise<{ repoSlug: string }> }) {
   const { repoSlug } = await params;
-  const config = loadConfig();
-  const repo = config.repos.find((candidate) => candidate.slug === repoSlug);
-  const user = await getCurrentUser();
+  const { repo, user } = await resolveRepoRequest(repoSlug);
 
   if (!repo) return NextResponse.json({ error: "Repository not found." }, { status: 404 });
   if (!canReadRepo(repo, user)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
@@ -36,9 +33,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ repo
   }
 
   const extension = resolved.absolutePath.slice(resolved.absolutePath.lastIndexOf(".")).toLowerCase();
+  const contentType = contentTypes[extension];
+  if (!contentType) {
+    return NextResponse.json({ error: "Unsupported asset type." }, { status: 415 });
+  }
+
   return new Response(fs.readFileSync(resolved.absolutePath), {
     headers: {
-      "content-type": contentTypes[extension] ?? "application/octet-stream",
+      "content-type": contentType,
     },
   });
 }

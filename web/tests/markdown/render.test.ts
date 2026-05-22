@@ -44,6 +44,13 @@ describe("Markdown renderer", () => {
     expect(rendered.html).not.toContain("data:text/html");
   });
 
+  it("does not emit raw HTML from markdown input", () => {
+    const rendered = renderMarkdown('<script>alert("x")</script>');
+
+    expect(rendered.html).not.toContain("<script>");
+    expect(rendered.html).not.toContain("alert");
+  });
+
   it("adds server-side token spans for supported code blocks", () => {
     const rendered = renderMarkdown(["```ts", "const answer = 42", "```"].join("\n"));
 

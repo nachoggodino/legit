@@ -473,7 +473,7 @@ textarea {
 
 .editor-modal {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
   width: min(1400px, 100%);
   height: min(900px, 100%);
   margin: 0 auto;
@@ -498,6 +498,38 @@ textarea {
   flex: 1;
   min-width: 0;
   padding: 0 0.65rem;
+}
+
+.editor-confirmation {
+  display: grid;
+  grid-template-columns: minmax(12rem, 1fr) minmax(16rem, 1.2fr) auto;
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--copi-border);
+  background: var(--copi-surface-muted);
+}
+
+.editor-confirmation strong,
+.editor-confirmation span,
+.editor-impact-list {
+  display: block;
+}
+
+.editor-confirmation input {
+  width: 100%;
+  min-width: 0;
+  padding: 0 0.65rem;
+}
+
+.editor-impact-list {
+  color: var(--copi-text-muted);
+  font-size: 0.9rem;
+}
+
+.editor-confirmation-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 
 .editor-panes {
@@ -678,5 +710,13 @@ textarea {
     min-height: 0;
     border-right: 0;
     border-bottom: 1px solid var(--copi-border);
+  }
+
+  .editor-confirmation {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-confirmation-actions {
+    flex-wrap: wrap;
   }
 }

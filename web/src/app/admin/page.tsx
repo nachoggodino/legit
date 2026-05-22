@@ -1,10 +1,7 @@
 import { forbidden, unauthorized } from "next/navigation";
 import { requireAdmin } from "@/server/auth";
 import { AuthenticationRequiredError, AuthorizationError } from "@/server/auth";
-import { buildAuthProviderStatuses } from "@/server/auth/providers";
-import { loadConfig } from "@/server/config";
-import { getRuntimeDatabase, importRepositoriesFromConfig, listRepositorySyncStatuses } from "@/server/db";
-import { redactGitUrl } from "@/server/git";
+import { getAdminDashboardData } from "@/server/admin/dashboard";
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +42,7 @@ export default async function AdminPage() {
     throw error;
   }
 
-  const config = loadConfig();
-  const { db } = getRuntimeDatabase();
-  importRepositoriesFromConfig(db, config.repos);
-  const repos = listRepositorySyncStatuses(db);
-  const authProviderStatuses = buildAuthProviderStatuses();
+  const { repos, authProviderStatuses } = getAdminDashboardData();
 
   return (
     <main className="app-shell">
@@ -90,7 +83,7 @@ export default async function AdminPage() {
                     <td>{formatCommit(repo.lastSyncedCommit)}</td>
                     <td>{formatDate(repo.lastSyncStartedAt)}</td>
                     <td>{formatDate(repo.lastSyncFinishedAt)}</td>
-                    <td className="admin-error">{repo.lastError ? redactGitUrl(repo.lastError) : "None"}</td>
+                    <td className="admin-error">{repo.lastError ?? "None"}</td>
                     <td>
                       <form action={`/api/admin/repos/${encodeURIComponent(repo.id)}/sync`} method="post">
                         <button className="admin-action" type="submit">
