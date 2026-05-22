@@ -34,6 +34,38 @@ export const repoSyncState = sqliteTable("repo_sync_state", {
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+export const documentMetadata = sqliteTable(
+  "document_metadata",
+  {
+    repoId: text("repo_id")
+      .notNull()
+      .references(() => repositories.id, { onDelete: "cascade" }),
+    path: text("path").notNull(),
+    title: text("title"),
+    headings: text("headings", { mode: "json" }).$type<Array<{ id: string; text: string; level: number }>>().notNull(),
+    frontmatter: text("frontmatter", { mode: "json" }).$type<Record<string, string | boolean | number>>().notNull(),
+    summary: text("summary"),
+    contentHash: text("content_hash").notNull(),
+    lastIndexedCommit: text("last_indexed_commit"),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.repoId, table.path] }),
+  }),
+);
+
+export const auditEvents = sqliteTable("audit_events", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => crypto.randomUUID()),
+  actorId: text("actor_id"),
+  repoId: text("repo_id"),
+  operation: text("operation").notNull(),
+  documentPath: text("document_path"),
+  metadata: text("metadata", { mode: "json" }).$type<Record<string, unknown>>(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+});
+
 export const users = sqliteTable("users", {
   id: text("id")
     .primaryKey()

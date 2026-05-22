@@ -25,7 +25,9 @@ a {
 }
 
 button,
-select {
+select,
+input,
+textarea {
   font: inherit;
 }
 
@@ -92,6 +94,85 @@ select {
   background: var(--copi-surface);
   color: var(--copi-text-muted);
   box-shadow: var(--copi-shadow);
+}
+
+.search-box {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.75rem;
+  padding: 0.35rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  box-shadow: var(--copi-shadow);
+}
+
+.search-box input,
+.search-box button,
+.editor-toolbar input,
+.editor-toolbar button,
+.editor-ai-row input,
+.editor-ai-row button {
+  min-height: 2rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  color: var(--copi-text);
+}
+
+.search-box input {
+  min-width: 0;
+  border-color: transparent;
+  padding: 0 0.65rem;
+}
+
+.search-box button,
+.editor-toolbar button,
+.editor-ai-row button {
+  padding: 0 0.65rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.search-popover {
+  position: absolute;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  left: 0;
+  z-index: 40;
+  display: grid;
+  gap: 0.45rem;
+  max-height: 420px;
+  overflow: auto;
+  padding: 0.8rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  box-shadow: var(--copi-shadow);
+}
+
+.search-popover a {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--copi-radius);
+}
+
+.search-popover a:hover {
+  background: var(--copi-primary-soft);
+}
+
+.search-popover span,
+.muted {
+  color: var(--copi-text-muted);
+}
+
+.ai-answer {
+  white-space: pre-wrap;
+  font-family: var(--copi-font-sans);
 }
 
 .navbar-actions {
@@ -196,6 +277,117 @@ select {
   padding-bottom: 4rem;
 }
 
+.markdown-page {
+  display: grid;
+  gap: 1rem;
+}
+
+.toc-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.7rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+}
+
+.toc-panel a {
+  color: var(--copi-primary);
+  font-weight: 700;
+}
+
+.markdown-body {
+  color: var(--copi-text);
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  margin: 1.6rem 0 0.6rem;
+  line-height: 1.18;
+}
+
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body blockquote {
+  margin: 0.75rem 0;
+}
+
+.markdown-body table {
+  width: 100%;
+  margin: 1rem 0;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+}
+
+.markdown-body th,
+.markdown-body td {
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--copi-border);
+  text-align: left;
+}
+
+.markdown-body th {
+  background: var(--copi-surface-muted);
+}
+
+.markdown-body pre {
+  overflow-x: auto;
+  padding: 0.9rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: #111827;
+  color: #f8fafc;
+}
+
+.markdown-body code {
+  font-family: var(--copi-font-editor);
+}
+
+.markdown-body pre .token.keyword {
+  color: #93c5fd;
+}
+
+.markdown-body pre .token.string {
+  color: #86efac;
+}
+
+.markdown-body pre .token.comment {
+  color: #94a3b8;
+}
+
+.markdown-body :not(pre) > code {
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+  background: var(--copi-primary-soft);
+  color: var(--copi-primary);
+}
+
+.markdown-body blockquote {
+  padding-left: 0.9rem;
+  border-left: 4px solid var(--copi-primary);
+  color: var(--copi-text-muted);
+}
+
+.heading-anchor {
+  margin-right: 0.4rem;
+  color: var(--copi-text-muted);
+  opacity: 0;
+}
+
+.markdown-body h1:hover .heading-anchor,
+.markdown-body h2:hover .heading-anchor,
+.markdown-body h3:hover .heading-anchor,
+.markdown-body h4:hover .heading-anchor,
+.heading-anchor:focus {
+  opacity: 1;
+}
+
 .page-title {
   margin: 0 0 1rem;
   font-size: clamp(2rem, 5vw, 2.65rem);
@@ -253,6 +445,87 @@ select {
 .repo-card-warning {
   color: var(--copi-text-muted);
   font-size: 0.92rem;
+}
+
+.floating-edit-button {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 30;
+  min-height: 2.7rem;
+  padding: 0 1rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: linear-gradient(135deg, var(--copi-primary), var(--copi-secondary));
+  color: white;
+  box-shadow: var(--copi-shadow);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.editor-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  padding: 1.5rem;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.editor-modal {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(1400px, 100%);
+  height: min(900px, 100%);
+  margin: 0 auto;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  box-shadow: var(--copi-shadow);
+  overflow: hidden;
+}
+
+.editor-toolbar,
+.editor-ai-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--copi-border);
+}
+
+.editor-toolbar input,
+.editor-ai-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 0.65rem;
+}
+
+.editor-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 6px minmax(0, 1fr);
+  min-height: 0;
+}
+
+.editor-panes textarea {
+  width: 100%;
+  min-width: 0;
+  resize: none;
+  border: 0;
+  padding: 1rem;
+  background: var(--copi-surface-muted);
+  color: var(--copi-text);
+  font-family: var(--copi-font-editor);
+}
+
+.editor-divider {
+  background: var(--copi-border);
+  cursor: col-resize;
+}
+
+.editor-preview {
+  min-width: 0;
+  overflow: auto;
+  padding: 1rem;
 }
 
 .repo-card-warning {

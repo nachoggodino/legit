@@ -5,6 +5,7 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { sql } from "drizzle-orm";
 import * as schema from "./schema";
 
 export const DEFAULT_DATABASE_PATH = "/data/copisaurus.db";
@@ -50,6 +51,31 @@ export function createSqliteDatabase(databasePath = resolveDatabasePath()) {
 
 export function initializeSchema(db: DbClient, migrationsFolder = DEFAULT_MIGRATIONS_FOLDER): void {
   migrate(db, { migrationsFolder });
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS document_metadata (
+      repo_id text NOT NULL REFERENCES repositories(id) ON DELETE cascade,
+      path text NOT NULL,
+      title text,
+      headings text NOT NULL,
+      frontmatter text NOT NULL,
+      summary text,
+      content_hash text NOT NULL,
+      last_indexed_commit text,
+      updated_at integer NOT NULL,
+      PRIMARY KEY (repo_id, path)
+    )
+  `);
+  db.run(sql`
+    CREATE TABLE IF NOT EXISTS audit_events (
+      id text PRIMARY KEY NOT NULL,
+      actor_id text,
+      repo_id text,
+      operation text NOT NULL,
+      document_path text,
+      metadata text,
+      created_at integer NOT NULL
+    )
+  `);
 }
 
 export function getRuntimeDatabase(): SqliteDatabaseHandle {
