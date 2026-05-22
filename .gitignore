@@ -68,3 +68,6 @@ htmlcov/
 *.egg-info/
 
 docker-compose.override.yml
+
+# Local Codex/runtime state
+.codex-dev/

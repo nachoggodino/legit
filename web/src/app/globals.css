@@ -1,0 +1,409 @@
+@import url("https://fonts.googleapis.com/css2?family=Hind:wght@300;400;500;600;700&display=swap");
+@import "../styles/tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--copi-bg);
+  color: var(--copi-text);
+  font-family: var(--copi-font-sans);
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, var(--copi-surface-muted) 0, var(--copi-bg) 280px),
+    var(--copi-bg);
+}
+
+.top-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 560px) minmax(220px, 1fr);
+  align-items: center;
+  gap: 1rem;
+  min-height: var(--copi-navbar-height);
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--copi-border);
+  background: color-mix(in srgb, var(--copi-surface) 92%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: lowercase;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2.4rem;
+  height: 2.4rem;
+  place-items: center;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  box-shadow: 0 4px 14px rgba(147, 51, 234, 0.12);
+}
+
+.brand-text,
+.page-title {
+  background: linear-gradient(135deg, var(--copi-primary) 0%, var(--copi-secondary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.search-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  color: var(--copi-text-muted);
+  box-shadow: var(--copi-shadow);
+}
+
+.navbar-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.repo-switcher,
+.nav-link,
+.theme-toggle {
+  min-height: 2.25rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  color: var(--copi-text);
+}
+
+.repo-switcher {
+  max-width: 180px;
+  padding: 0 0.65rem;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  font-weight: 600;
+}
+
+.user-menu {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.role-pill {
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--copi-primary-soft);
+  color: var(--copi-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  cursor: pointer;
+}
+
+.docs-frame {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 2rem;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+.docs-sidebar {
+  position: sticky;
+  top: calc(var(--copi-navbar-height) + 1.5rem);
+  align-self: start;
+  min-height: 420px;
+  padding: 1rem;
+  border-right: 1px solid var(--copi-border);
+  color: var(--copi-text-muted);
+}
+
+.sidebar-heading {
+  margin: 0 0 0.75rem;
+  color: var(--copi-text);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sidebar-item {
+  display: block;
+  padding: 0.5rem 0.6rem;
+  border-left: 4px solid transparent;
+  border-radius: 0 var(--copi-radius) var(--copi-radius) 0;
+}
+
+.sidebar-item.active {
+  border-left-color: var(--copi-primary);
+  background: linear-gradient(135deg, var(--copi-primary-soft), var(--copi-secondary-soft));
+  color: var(--copi-primary);
+  font-weight: 700;
+}
+
+.doc-content {
+  max-width: var(--copi-content-width);
+  min-height: 560px;
+  padding-bottom: 4rem;
+}
+
+.page-title {
+  margin: 0 0 1rem;
+  font-size: clamp(2rem, 5vw, 2.65rem);
+  line-height: 1.05;
+}
+
+.placeholder-panel {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+}
+
+.placeholder-panel h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.placeholder-panel p {
+  margin: 0;
+  color: var(--copi-text-muted);
+}
+
+.repo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+  margin-top: 1.5rem;
+}
+
+.repo-card {
+  display: grid;
+  gap: 0.25rem;
+  min-height: 110px;
+  padding: 1rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  box-shadow: var(--copi-shadow);
+}
+
+.repo-card.locked {
+  border-color: var(--copi-border-strong);
+  box-shadow: none;
+}
+
+.repo-card-title {
+  color: var(--copi-text);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.repo-card-meta,
+.repo-card-warning {
+  color: var(--copi-text-muted);
+  font-size: 0.92rem;
+}
+
+.repo-card-warning {
+  color: var(--copi-warning);
+  font-weight: 700;
+}
+
+.admin-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.admin-panel {
+  margin-top: 1.5rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  box-shadow: var(--copi-shadow);
+  overflow: hidden;
+}
+
+.admin-panel-heading {
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--copi-border);
+}
+
+.admin-panel-heading h2,
+.admin-panel-heading p {
+  margin: 0;
+}
+
+.admin-panel-heading p {
+  color: var(--copi-text-muted);
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--copi-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table thead th {
+  color: var(--copi-text-muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.admin-repo-name,
+.admin-repo-meta {
+  display: block;
+}
+
+.admin-repo-meta,
+.admin-error {
+  color: var(--copi-text-muted);
+  font-size: 0.9rem;
+}
+
+.status-pill {
+  display: inline-flex;
+  min-width: 5.8rem;
+  justify-content: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: var(--copi-surface-muted);
+  color: var(--copi-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.status-succeeded {
+  background: var(--copi-success-soft);
+  color: var(--copi-success);
+}
+
+.status-failed {
+  background: var(--copi-danger-soft);
+  color: var(--copi-danger);
+}
+
+.status-syncing {
+  background: var(--copi-primary-soft);
+  color: var(--copi-primary);
+}
+
+.admin-action {
+  min-height: 2.15rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  color: var(--copi-text);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.auth-status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.auth-status-item {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  min-height: 120px;
+  padding: 0.85rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface-muted);
+}
+
+.repo-gate {
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+@media (max-width: 860px) {
+  .top-navbar {
+    grid-template-columns: 1fr;
+  }
+
+  .navbar-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .docs-frame {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .docs-sidebar {
+    position: static;
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--copi-border);
+  }
+}
