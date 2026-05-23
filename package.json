@@ -3,19 +3,21 @@
   "version": "1.0.0",
   "description": "AI-powered documentation wiki backed by Git",
   "private": true,
+  "packageManager": "pnpm@10.24.0",
   "scripts": {
-    "build": "docker compose build",
+    "dev": "corepack pnpm --dir web dev",
+    "build": "corepack pnpm --dir web build",
     "start": "docker compose up -d",
     "stop": "docker compose down",
-    "restart": "docker compose restart backend",
-    "logs": "docker compose logs -f backend",
+    "restart": "docker compose restart app",
+    "logs": "docker compose logs -f app",
     "status": "docker compose ps",
-    "test": "docker compose run --rm backend python -m pytest",
-    "test:verbose": "docker compose run --rm backend python -m pytest -v",
-    "test:local": "cd backend && python -m pytest",
+    "lint": "corepack pnpm --dir web lint",
+    "typecheck": "corepack pnpm --dir web typecheck",
+    "test": "corepack pnpm --dir web test",
+    "test:e2e": "corepack pnpm --dir web test:e2e",
+    "docker:build": "docker compose build",
     "clean": "docker compose down --volumes --remove-orphans",
-    "shell": "docker compose exec backend /bin/bash",
-    "dev:backend": "docker compose up -d backend",
-    "dev:frontend": "cd frontend && DOCS_PATH=../docs-repo/docs npm start"
+    "shell": "docker compose exec app /bin/sh"
   }
 }

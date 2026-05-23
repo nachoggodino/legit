@@ -1,36 +1,27 @@
 services:
-  backend:
+  app:
     build:
-      context: ./backend
+      context: ./web
       dockerfile: Dockerfile
     ports:
-      - "8021:8000"
+      - "3000:3000"
     env_file:
       - .env
+    environment:
+      COPISAURUS_CONFIG_PATH: /config/copisaurus.yaml
+      COPISAURUS_DATABASE_PATH: /data/copisaurus.db
+      COPISAURUS_REPOS_ROOT: /data/repos
     volumes:
-      - ./docs-repo:/app/docs-repo
+      - copisaurus-data:/data
+      - ./copisaurus.example.yaml:/config/copisaurus.yaml:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 5m
       timeout: 10s
       retries: 3
       start_period: 60s
       start_interval: 5s
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env
-    volumes:
-      - ./docs-repo:/app/docs-repo
-    depends_on:
-      backend:
-        condition: service_healthy
-    restart: unless-stopped
-    environment:
-      - DOCS_PATH=/app/docs-repo/docs
+volumes:
+  copisaurus-data:

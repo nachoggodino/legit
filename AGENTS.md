@@ -4,8 +4,6 @@
 
 Work in `web/` for the production app. It is a Next.js App Router application with TypeScript, Auth.js, SQLite/Drizzle, server modules, and Git-backed Markdown repositories.
 
-`backend/` and `frontend/` are legacy references until cutover. Do not modify them unless the user explicitly asks or documentation needs to explain their legacy status.
-
 ## Boundaries
 
 - Keep route handlers thin.

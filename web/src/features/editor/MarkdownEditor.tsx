@@ -23,7 +23,14 @@ export function MarkdownEditorLauncher({ repoSlug, documentPath }: { repoSlug: s
   return (
     <>
       <button className="floating-edit-button" type="button" onClick={() => setOpen(true)}>Edit</button>
-      {open ? <MarkdownEditorModal repoSlug={repoSlug} documentPath={documentPath} onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <MarkdownEditorModal
+          key={`${repoSlug}:${documentPath}`}
+          repoSlug={repoSlug}
+          documentPath={documentPath}
+          onClose={() => setOpen(false)}
+        />
+      ) : null}
     </>
   );
 }
@@ -39,8 +46,6 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
 
   useEffect(() => {
-    setCurrentPath(documentPath);
-    setPath(documentPath);
     void fetch(`/api/repos/${repoSlug}/documents?path=${encodeURIComponent(documentPath)}`)
       .then((response) => response.json())
       .then((payload) => {

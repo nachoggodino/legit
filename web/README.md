@@ -1,15 +1,15 @@
 # Copisaurus Web
 
-This is the Phase 0/1 Next.js migration app. It coexists with the current `backend/` and `frontend/` reference implementations.
+This is the production Next.js app for Copisaurus.
 
 ## Commands
 
 ```bash
-pnpm install
-pnpm dev
-pnpm test
-pnpm typecheck
-pnpm build
+corepack pnpm install
+corepack pnpm dev
+corepack pnpm test
+corepack pnpm typecheck
+corepack pnpm build
 ```
 
 Formatting is intentionally out of scope for the current migration phase because there are no external contributors yet. Use the existing lint, typecheck, and test commands as the canonical quality gates for now.

@@ -2,7 +2,7 @@
 
 Copisaurus is a self-hosted, Git-backed documentation platform for Markdown repositories with authenticated reading, editor/admin workflows, audit logging, and optional OpenAI-compatible AI assistance.
 
-The production target is the `web/` Next.js application. The older `backend/` FastAPI app and `frontend/` Docusaurus app remain in this repository only as legacy references until final cutover.
+The production app is the `web/` Next.js application.
 
 ## Architecture
 
@@ -25,13 +25,14 @@ Persistent deployment paths:
 ## Local Development
 
 ```bash
-cd web
-pnpm install
-cp ../.env.example .env.local
-pnpm dev
+corepack pnpm --dir web install
+cp .env.example web/.env.local
+corepack pnpm dev
 ```
 
 The app runs at `http://localhost:3000` by default.
+
+Root package scripts delegate to `web/` for local development and tests. Docker Compose builds the standalone Next.js service.
 
 ## Runtime Configuration
 
@@ -62,9 +63,9 @@ Each repo config chooses one commit mode:
 Run from `web/`:
 
 ```bash
-pnpm typecheck
-pnpm test
-pnpm test:e2e
+corepack pnpm --dir web typecheck
+corepack pnpm --dir web test
+corepack pnpm --dir web test:e2e
 ```
 
 Tests must mock GitHub, GitLab, OAuth, and AI providers. Do not call real provider APIs from tests.

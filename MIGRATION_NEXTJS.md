@@ -1,7 +1,7 @@
 # Copisaurus Next.js Migration Plan
 
-Status: implementation plan with Phases 7-9 partially implemented  
-Date: 2026-05-22
+Status: implementation plan with Phase 10 cutover implemented  
+Date: 2026-05-23
 
 This document captures the agreed migration direction for moving Copisaurus from the current Docusaurus + FastAPI prototype into a production-oriented, self-hosted-first Next.js application.
 
