@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { RepositoryConfig } from "@/server/config";
 import { recordAuditEvent } from "@/server/audit";
-import { commitDocumentChange } from "@/server/git/commit";
+import { commitDocumentChange, type DocumentCommitResult } from "@/server/git/commit";
 import type { GitRunner } from "@/server/git";
 import { buildRipgrepArgs, type RipgrepRunner, defaultRipgrepRunner } from "@/server/search";
 import { withRepoLock } from "@/server/sync";
@@ -21,6 +21,24 @@ function atomicWriteFile(filePath: string, source: string): void {
     fs.rmSync(temporaryPath, { force: true });
     throw error;
   }
+}
+
+function snapshotFile(filePath: string) {
+  const existed = fs.existsSync(filePath);
+  return {
+    existed,
+    source: existed ? fs.readFileSync(filePath, "utf8") : null,
+  };
+}
+
+function restoreFile(filePath: string, snapshot: ReturnType<typeof snapshotFile>): void {
+  if (snapshot.existed && snapshot.source !== null) {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    atomicWriteFile(filePath, snapshot.source);
+    return;
+  }
+
+  fs.rmSync(filePath, { force: true });
 }
 
 async function maybeRecordAudit(
@@ -44,7 +62,7 @@ async function maybeCommitChange(
   repo: CommitCapableRepo,
   operation: DocumentFileOperation,
   documentPaths: string[],
-  options: { reposRoot?: string; commitRunner?: GitRunner },
+  options: { reposRoot?: string; commitRunner?: GitRunner; commitEnv?: Record<string, string | undefined> },
 ) {
   if (!repo.commit) {
     return { committed: false, commit: null };
@@ -53,6 +71,30 @@ async function maybeCommitChange(
   return commitDocumentChange(repo as RepositoryConfig, operation, documentPaths, {
     reposRoot: options.reposRoot,
     runner: options.commitRunner,
+    env: "commitEnv" in options ? options.commitEnv : undefined,
+  });
+}
+
+async function auditCommittedChange(
+  repo: CommitCapableRepo,
+  operation: DocumentFileOperation,
+  sourcePath: string,
+  options: { actorId?: string | null; targetPath?: string; aiInvolved?: boolean },
+  commit: Awaited<ReturnType<typeof maybeCommitChange>>,
+) {
+  const workflow = commit as Partial<DocumentCommitResult>;
+  await maybeRecordAudit(repo, options, {
+    operation: `document.${operation}`,
+    documentPath: sourcePath,
+    metadata: {
+      sourcePath,
+      targetPath: options.targetPath ?? null,
+      sourceBranch: repo.commit?.targetBranch ?? null,
+      targetBranch: workflow.branch ?? repo.commit?.targetBranch ?? null,
+      commitUrl: workflow.commitUrl ?? null,
+      pullRequestUrl: workflow.pullRequestUrl ?? null,
+      aiInvolved: Boolean(options.aiInvolved),
+    },
   });
 }
 
@@ -68,7 +110,7 @@ export async function writeMarkdownDocument(
   repo: CommitCapableRepo,
   documentPath: string,
   source: string,
-  options: { reposRoot?: string; create?: boolean; actorId?: string | null; commitRunner?: GitRunner } = {},
+  options: { reposRoot?: string; create?: boolean; actorId?: string | null; commitRunner?: GitRunner; commitEnv?: Record<string, string | undefined>; aiInvolved?: boolean } = {},
 ) {
   return withRepoLock(repo.id, async () => {
     const resolved = resolveDocumentPath(repo, documentPath, { markdownOnly: true, reposRoot: options.reposRoot });
@@ -82,12 +124,16 @@ export async function writeMarkdownDocument(
     }
 
     fs.mkdirSync(path.dirname(resolved.absolutePath), { recursive: true });
-    atomicWriteFile(resolved.absolutePath, source);
-    await maybeRecordAudit(repo, options, {
-      operation: options.create ? "document.create" : "document.edit",
-      documentPath: resolved.relativePath,
-    });
-    const commit = await maybeCommitChange(repo, options.create ? "create" : "edit", [resolved.relativePath], options);
+    const before = snapshotFile(resolved.absolutePath);
+    let commit: Awaited<ReturnType<typeof maybeCommitChange>>;
+    try {
+      atomicWriteFile(resolved.absolutePath, source);
+      commit = await maybeCommitChange(repo, options.create ? "create" : "edit", [resolved.relativePath], options);
+    } catch (error) {
+      restoreFile(resolved.absolutePath, before);
+      throw error;
+    }
+    await auditCommittedChange(repo, options.create ? "create" : "edit", resolved.relativePath, options, commit);
 
     return { path: resolved.relativePath, commit };
   });
@@ -97,7 +143,7 @@ export async function renameMarkdownDocument(
   repo: CommitCapableRepo,
   fromPath: string,
   toPath: string,
-  options: { reposRoot?: string; actorId?: string | null; confirmed?: boolean; commitRunner?: GitRunner } = {},
+  options: { reposRoot?: string; actorId?: string | null; confirmed?: boolean; commitRunner?: GitRunner; commitEnv?: Record<string, string | undefined>; aiInvolved?: boolean } = {},
 ) {
   if (!options.confirmed) {
     throw new Error("Rename requires explicit confirmation.");
@@ -115,13 +161,18 @@ export async function renameMarkdownDocument(
     }
 
     fs.mkdirSync(path.dirname(to.absolutePath), { recursive: true });
-    fs.renameSync(from.absolutePath, to.absolutePath);
-    await maybeRecordAudit(repo, options, {
-      operation: "document.rename",
-      documentPath: from.relativePath,
-      metadata: { toPath: to.relativePath },
-    });
-    const commit = await maybeCommitChange(repo, "rename", [from.relativePath, to.relativePath], options);
+    const fromBefore = snapshotFile(from.absolutePath);
+    const toBefore = snapshotFile(to.absolutePath);
+    let commit: Awaited<ReturnType<typeof maybeCommitChange>>;
+    try {
+      fs.renameSync(from.absolutePath, to.absolutePath);
+      commit = await maybeCommitChange(repo, "rename", [from.relativePath, to.relativePath], options);
+    } catch (error) {
+      restoreFile(to.absolutePath, toBefore);
+      restoreFile(from.absolutePath, fromBefore);
+      throw error;
+    }
+    await auditCommittedChange(repo, "rename", from.relativePath, { ...options, targetPath: to.relativePath }, commit);
 
     return { fromPath: from.relativePath, toPath: to.relativePath, commit };
   });
@@ -130,7 +181,7 @@ export async function renameMarkdownDocument(
 export async function deleteMarkdownDocument(
   repo: CommitCapableRepo,
   documentPath: string,
-  options: { reposRoot?: string; actorId?: string | null; confirmed?: boolean; commitRunner?: GitRunner } = {},
+  options: { reposRoot?: string; actorId?: string | null; confirmed?: boolean; commitRunner?: GitRunner; commitEnv?: Record<string, string | undefined>; aiInvolved?: boolean } = {},
 ) {
   if (!options.confirmed) {
     throw new Error("Delete requires explicit confirmation.");
@@ -142,12 +193,16 @@ export async function deleteMarkdownDocument(
       throw new Error("Document does not exist.");
     }
 
-    fs.rmSync(resolved.absolutePath);
-    await maybeRecordAudit(repo, options, {
-      operation: "document.delete",
-      documentPath: resolved.relativePath,
-    });
-    const commit = await maybeCommitChange(repo, "delete", [resolved.relativePath], options);
+    const before = snapshotFile(resolved.absolutePath);
+    let commit: Awaited<ReturnType<typeof maybeCommitChange>>;
+    try {
+      fs.rmSync(resolved.absolutePath);
+      commit = await maybeCommitChange(repo, "delete", [resolved.relativePath], options);
+    } catch (error) {
+      restoreFile(resolved.absolutePath, before);
+      throw error;
+    }
+    await auditCommittedChange(repo, "delete", resolved.relativePath, options, commit);
 
     return { path: resolved.relativePath, commit };
   });

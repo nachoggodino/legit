@@ -1,0 +1,31 @@
+# Copisaurus Agent Instructions
+
+## Target Architecture
+
+Work in `web/` for the production app. It is a Next.js App Router application with TypeScript, Auth.js, SQLite/Drizzle, server modules, and Git-backed Markdown repositories.
+
+`backend/` and `frontend/` are legacy references until cutover. Do not modify them unless the user explicitly asks or documentation needs to explain their legacy status.
+
+## Boundaries
+
+- Keep route handlers thin.
+- Put Git sync/write/provider API logic in `web/src/server/git`.
+- Put commit workflow orchestration in `web/src/server/git` or `web/src/server/commit`.
+- Put admin logic in `web/src/server/admin` or focused server modules.
+- Put audit logic in `web/src/server/audit`.
+- Put config file editing in `web/src/server/config`.
+- Keep Drizzle queries behind server/db or focused server modules.
+
+## Security
+
+- Admin APIs require `admin`.
+- Write APIs require `editor` or `admin`.
+- Public/private repo read rules must remain intact.
+- Use service/bot Git credentials only.
+- Never expose or store Git, AI, OAuth, or session secrets in client responses, logs, examples, audits, commit messages, or PR/MR descriptions.
+- Validate all Markdown operation paths under repo `docsPath`.
+- Use argument arrays for Git and search commands; never shell-concatenate user/config input.
+
+## Testing
+
+Use Vitest, React Testing Library, and Playwright from `web/`. Mock GitHub, GitLab, OAuth, and AI providers. Do not call real external providers from tests.

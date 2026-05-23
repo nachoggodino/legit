@@ -18,6 +18,7 @@ describe("AI chat access", () => {
 
   it("allows authenticated users when AI is enabled", () => {
     expect(canUseAi({ ai }, { role: "viewer" })).toBe(true);
+    expect(canUseAi({ ai }, { role: "viewer" }, { ai: { enabled: false } })).toBe(false);
   });
 
   it("streams provider chunks with a mocked OpenAI-compatible provider", async () => {

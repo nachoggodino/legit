@@ -1,7 +1,13 @@
 import type { GitProvider } from "@/server/git";
-import { githubGitAuth } from "./github";
-import { gitlabGitAuth } from "./gitlab";
-import type { GitAuthConfig } from "./types";
+import { createGitHubProvider, githubGitAuth } from "./github";
+import { createGitLabProvider, gitlabGitAuth } from "./gitlab";
+import type {
+  GitAuthConfig,
+  GitHostingProvider,
+  MergeRequestInput,
+  MergeRequestResult,
+  ProviderFetch,
+} from "./types";
 
 const providers: Record<GitProvider, GitAuthConfig> = {
   github: githubGitAuth,
@@ -12,4 +18,11 @@ export function getGitAuthConfig(provider: GitProvider): GitAuthConfig {
   return providers[provider];
 }
 
-export type { GitAuthConfig };
+export function createGitHostingProvider(
+  provider: GitProvider,
+  options: { fetch?: ProviderFetch; env?: NodeJS.ProcessEnv } = {},
+): GitHostingProvider {
+  return provider === "github" ? createGitHubProvider(options) : createGitLabProvider(options);
+}
+
+export type { GitAuthConfig, GitHostingProvider, MergeRequestInput, MergeRequestResult, ProviderFetch };

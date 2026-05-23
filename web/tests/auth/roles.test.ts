@@ -50,6 +50,7 @@ describe("auth roles and permissions", () => {
     expect(canEditRepo(admin)).toBe(true);
     expect(canUseAi(config, null)).toBe(false);
     expect(canUseAi(config, viewer)).toBe(true);
+    expect(canUseAi(config, viewer, { ai: { enabled: false } })).toBe(false);
   });
 
   it("does not implicitly bootstrap the first authenticated user as admin", () => {

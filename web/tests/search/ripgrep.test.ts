@@ -15,6 +15,7 @@ const configRepo = {
   defaultBranch: "main",
   docsPath: "docs",
   visibility: "private" as const,
+  ai: { enabled: true },
   commit: { mode: "direct" as const, targetBranch: "main", branchPrefix: "copisaurus/" },
 };
 

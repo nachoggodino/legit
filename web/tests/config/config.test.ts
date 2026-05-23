@@ -1,6 +1,9 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
-import { parseConfigText } from "@/server/config";
+import { isConfigWritable, parseConfigText, updateSafeRepositoryConfig } from "@/server/config";
 
 const validConfig = `
 app:
@@ -123,4 +126,88 @@ repos:
       ).toThrow();
     },
   );
+
+  it.each(["direct", "branch", "merge-request"])("accepts commit mode %s", (mode) => {
+    const config = parseConfigText(validConfig.replace("mode: merge-request", `mode: ${mode}`));
+    expect(config.repos[0].commit.mode).toBe(mode);
+  });
+
+  it("validates, backs up, atomically writes, and rereads safe config edits", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "copi-config-"));
+    const configPath = path.join(dir, "copisaurus.yaml");
+    fs.writeFileSync(configPath, validConfig, "utf8");
+    const previousConfigPath = process.env.COPISAURUS_CONFIG_PATH;
+    process.env.COPISAURUS_CONFIG_PATH = configPath;
+
+    try {
+      const result = updateSafeRepositoryConfig({
+        id: "research",
+        name: "Research Docs",
+        slug: "research-docs",
+        visibility: "public",
+        defaultBranch: "main",
+        docsPath: "docs/reference",
+        aiEnabled: true,
+        commit: { mode: "branch", targetBranch: "main", branchPrefix: "copisaurus/" },
+      });
+
+      expect(fs.existsSync(result.backupPath)).toBe(true);
+      const reread = parseConfigText(fs.readFileSync(configPath, "utf8"));
+      expect(reread.repos[0]).toMatchObject({ name: "Research Docs", slug: "research-docs", docsPath: "docs/reference" });
+      expect(reread.repos[0].commit.mode).toBe("branch");
+      expect(reread.ai.enabled).toBe(false);
+      expect(reread.repos[0].ai.enabled).toBe(true);
+    } finally {
+      process.env.COPISAURUS_CONFIG_PATH = previousConfigPath;
+    }
+  });
+
+  it("rejects duplicate and reserved slugs during safe config edits", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "copi-config-dupe-"));
+    const configPath = path.join(dir, "copisaurus.yaml");
+    fs.writeFileSync(
+      configPath,
+      validConfig.replace(
+        "repos:\n  - id: research",
+        "repos:\n  - id: docs\n    slug: docs\n    name: Docs\n    provider: github\n    repoUrl: https://github.com/example/docs\n  - id: research",
+      ),
+      "utf8",
+    );
+    const previousConfigPath = process.env.COPISAURUS_CONFIG_PATH;
+    process.env.COPISAURUS_CONFIG_PATH = configPath;
+
+    try {
+      expect(() =>
+        updateSafeRepositoryConfig({
+          id: "research",
+          name: "Research",
+          slug: "docs",
+          visibility: "private",
+          defaultBranch: "main",
+          docsPath: "docs",
+          aiEnabled: false,
+          commit: { mode: "merge-request", targetBranch: "main", branchPrefix: "copisaurus/" },
+        }),
+      ).toThrow(/Duplicate repository slug/i);
+
+      expect(() =>
+        updateSafeRepositoryConfig({
+          id: "research",
+          name: "Research",
+          slug: "admin",
+          visibility: "private",
+          defaultBranch: "main",
+          docsPath: "docs",
+          aiEnabled: false,
+          commit: { mode: "merge-request", targetBranch: "main", branchPrefix: "copisaurus/" },
+        }),
+      ).toThrow(/reserved/i);
+    } finally {
+      process.env.COPISAURUS_CONFIG_PATH = previousConfigPath;
+    }
+  });
+
+  it("detects read-only config paths", () => {
+    expect(isConfigWritable("/path/that/does/not/exist/copisaurus.yaml")).toBe(false);
+  });
 });

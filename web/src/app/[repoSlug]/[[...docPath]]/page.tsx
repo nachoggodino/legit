@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { notFound, unauthorized } from "next/navigation";
-import { canReadRepo, getCurrentUser } from "@/server/auth";
+import { canReadRepo, canUseAi, getCurrentUser } from "@/server/auth";
 import { loadConfigForShell } from "@/server/config";
 import { buildDocsTree, resolveRouteDocument } from "@/server/docs";
 import { generateTableOfContents, renderMarkdown } from "@/server/markdown";
@@ -15,6 +15,10 @@ export default async function RepoDocPage({
 }) {
   const { repoSlug, docPath = [] } = await params;
   const config = loadConfigForShell();
+  if (!config) {
+    notFound();
+  }
+
   const repo = config?.repos.find((candidate) => candidate.slug === repoSlug);
 
   if (!repo) {
@@ -43,6 +47,7 @@ export default async function RepoDocPage({
       html={rendered.html}
       tree={buildDocsTree(repo)}
       toc={generateTableOfContents(rendered.headings)}
+      aiEnabled={canUseAi(config, user, repo)}
       hasDocumentTitleHeading={rendered.headings.some((heading) => heading.level === 1 && heading.text === rendered.title)}
     />
   );

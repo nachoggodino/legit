@@ -7,12 +7,18 @@ import {
   scanLinkImpact,
   writeMarkdownDocument,
 } from "@/server/docs";
+import { isCommitWorkflowError } from "@/server/git/commit";
 import { rejectCrossOriginMutation } from "@/server/http/origin";
 import { resolveRepoRequest } from "@/server/repos/request";
 
 export const runtime = "nodejs";
 
 function asBadRequest(error: unknown) {
+  if (isCommitWorkflowError(error)) {
+    const status = error.code === "auth" ? 401 : error.code === "protected-branch" || error.code === "conflict" ? 409 : 502;
+    return NextResponse.json({ error: error.message, code: error.code }, { status });
+  }
+
   return NextResponse.json({ error: error instanceof Error ? error.message : "Request failed." }, { status: 400 });
 }
 

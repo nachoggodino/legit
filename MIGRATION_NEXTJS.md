@@ -1,6 +1,6 @@
 # Copisaurus Next.js Migration Plan
 
-Status: planning document  
+Status: implementation plan with Phases 7-9 partially implemented  
 Date: 2026-05-22
 
 This document captures the agreed migration direction for moving Copisaurus from the current Docusaurus + FastAPI prototype into a production-oriented, self-hosted-first Next.js application.
@@ -350,6 +350,13 @@ Audit every write operation:
 - PR/MR URL
 - whether AI was involved
 
+Phase 7 implementation note:
+
+- Markdown create/edit/rename/delete flows now run commit workflows through `web/src/server/git/commit.ts`.
+- GitHub PR and GitLab MR creation live behind provider modules in `web/src/server/git/providers`.
+- Writes use service credentials from env vars only.
+- Protected branch, auth, conflict, and provider API failures are surfaced as classified workflow errors.
+
 ## 11. Markdown And Rendering
 
 v1 content model:
@@ -554,6 +561,11 @@ Admin UI v1 should include:
 
 Admin UI should not edit secrets in v1.
 
+Phase 8 implementation note:
+
+- The admin page shows repo sync/index status, manual sync/reindex actions, users/roles, audit events, auth provider status, AI provider/model status, safe repo config forms, and read-only config detection.
+- Safe config writes validate with Zod, create timestamped backups, write atomically, reread, and validate again.
+
 ## 18. Docs, Agents, Skills, And Prompts
 
 Documentation and agent guidance are first-class migration deliverables.
@@ -595,6 +607,12 @@ Migration work:
   - Docusaurus swizzling
   - `_index.json` in Git
   - Python-only backend testing
+
+Phase 9 implementation note:
+
+- Root `AGENTS.md`, README, SPEC, and `.env.example` have been updated for the Next.js target architecture.
+- Obsolete `.github` agent, skill, prompt, and Copilot instruction files were removed.
+- Creating nested `.agents/skills/**` and `.agents/prompts/**` files is blocked in the current Codex workspace because `.agents` is mounted read-only. Remount `.agents` writable, then add the Codex-native files listed above.
 
 Docs to update/create:
 
@@ -807,4 +825,3 @@ No major architecture blockers remain. Minor decisions can be made during implem
 - exact Auth.js session strategy
 - Mermaid support in v1 or phase 2
 - exact admin bootstrap mechanism
-

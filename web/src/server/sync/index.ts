@@ -111,6 +111,32 @@ export async function requestManualRepoSync(
   });
 }
 
+export async function requestManualRepoReindex(
+  repoId: string,
+  options: {
+    requireAdminUser?: () => Promise<AuthUser>;
+    db?: DbClient;
+    config?: CopisaurusConfig;
+    reposRoot?: string;
+  } = {},
+): Promise<{ repoId: string; indexed: true }> {
+  const requireAdminUser = options.requireAdminUser ?? (await import("@/server/auth/session")).requireAdmin;
+  await requireAdminUser();
+
+  const db = options.db ?? getRuntimeDatabase().db;
+  const config = options.config ?? loadConfig();
+  importRepositoriesFromConfig(db, config.repos);
+
+  const repo = config.repos.find((candidate) => candidate.id === repoId);
+  if (!repo) {
+    throw new Error("Repository not found.");
+  }
+
+  const commit = getRepoSyncState(db, repo.id)?.lastSyncedCommit ?? undefined;
+  reindexRepositoryDocuments(db, repo, { reposRoot: options.reposRoot, commit });
+  return { repoId: repo.id, indexed: true };
+}
+
 export type SyncSchedulerTimers = {
   setInterval: (callback: () => void, ms: number) => unknown;
   clearInterval: (handle: unknown) => void;

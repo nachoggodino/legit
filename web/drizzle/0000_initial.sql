@@ -31,6 +31,30 @@ CREATE TABLE `repo_sync_state` (
   CHECK (`status` IN ('idle', 'syncing', 'succeeded', 'failed'))
 );
 --> statement-breakpoint
+CREATE TABLE `document_metadata` (
+  `repo_id` text NOT NULL,
+  `path` text NOT NULL,
+  `title` text,
+  `headings` text NOT NULL,
+  `frontmatter` text NOT NULL,
+  `summary` text,
+  `content_hash` text NOT NULL,
+  `last_indexed_commit` text,
+  `updated_at` integer NOT NULL,
+  PRIMARY KEY (`repo_id`, `path`),
+  FOREIGN KEY (`repo_id`) REFERENCES `repositories`(`id`) ON UPDATE no action ON DELETE cascade
+);
+--> statement-breakpoint
+CREATE TABLE `audit_events` (
+  `id` text PRIMARY KEY NOT NULL,
+  `actor_id` text,
+  `repo_id` text,
+  `operation` text NOT NULL,
+  `document_path` text,
+  `metadata` text,
+  `created_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `users` (
   `id` text PRIMARY KEY NOT NULL,
   `name` text,

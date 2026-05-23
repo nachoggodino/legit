@@ -20,7 +20,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ rep
   if (!canEditRepo(user)) {
     return NextResponse.json({ error: "Editor role required." }, { status: 403 });
   }
-  if (!canUseAi(config, user)) {
+  if (!canUseAi(config, user, repo)) {
     return NextResponse.json({ error: "AI requires an authenticated user." }, { status: 401 });
   }
 

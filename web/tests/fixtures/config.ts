@@ -10,6 +10,7 @@ export function makeTestRepo(overrides: Partial<RepositoryConfig> = {}): Reposit
     defaultBranch: "main",
     docsPath: "docs",
     visibility: "private",
+    ai: { enabled: true },
     commit: { mode: "merge-request", targetBranch: "main", branchPrefix: "copisaurus/" },
     ...overrides,
   };

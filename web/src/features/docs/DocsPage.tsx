@@ -15,10 +15,11 @@ export type DocsPageProps = {
   html: string;
   tree: DocsTreeItem[];
   toc: MarkdownHeading[];
+  aiEnabled: boolean;
   hasDocumentTitleHeading: boolean;
 };
 
-export function DocsPage({ repo, user, markdownPath, title, html, tree, toc, hasDocumentTitleHeading }: DocsPageProps) {
+export function DocsPage({ repo, user, markdownPath, title, html, tree, toc, aiEnabled, hasDocumentTitleHeading }: DocsPageProps) {
   return (
     <main className="app-shell">
       <nav className="top-navbar" aria-label="Primary">
@@ -26,7 +27,7 @@ export function DocsPage({ repo, user, markdownPath, title, html, tree, toc, has
           <span className="brand-mark" aria-hidden="true">C</span>
           <span className="brand-text">Copisaurus</span>
         </Link>
-        <DocsSearch repoSlug={repo.slug} aiEnabled={Boolean(user)} />
+        <DocsSearch repoSlug={repo.slug} aiEnabled={aiEnabled} />
         <div className="navbar-actions">
           <Link className="nav-link" href="/">Repos</Link>
           {user ? <span className="nav-link user-menu">{user.name ?? user.email}<span className="role-pill">{user.role}</span></span> : <Link className="nav-link" href="/api/auth/signin">Log in</Link>}

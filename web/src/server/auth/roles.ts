@@ -87,8 +87,9 @@ export function canReadRepo(repo: Pick<RepositoryConfig, "visibility">, user?: P
 export function canUseAi(
   config: Pick<CopisaurusConfig, "ai">,
   user?: Pick<AuthUser, "role"> | null,
+  repo?: Pick<RepositoryConfig, "ai"> | null,
 ): boolean {
-  return config.ai.enabled && (config.ai.allowAnonymous || hasRoleAtLeast(user, "viewer"));
+  return config.ai.enabled && repo?.ai.enabled !== false && (config.ai.allowAnonymous || hasRoleAtLeast(user, "viewer"));
 }
 
 export function canEditRepo(user?: Pick<AuthUser, "role"> | null): boolean {

@@ -4,6 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildGitAuthEnv, cloneOrPullRepository, redactGitUrl, resolveRepoPath } from "@/server/git";
 import { commitDocumentChange } from "@/server/git/commit";
+import { createGitHubProvider } from "@/server/git/providers/github";
+import { createGitLabProvider } from "@/server/git/providers/gitlab";
 import { makeTestRepo } from "../fixtures/config";
 
 const repo = makeTestRepo();
@@ -104,7 +106,7 @@ describe("git helpers", () => {
     expect(fs.readFileSync(gitConfigPath, "utf8")).not.toContain("secret-token");
   });
 
-  it("returns explicit phase 7 pending metadata for non-direct commit modes", async () => {
+  it("runs branch workflow with service credentials and returns URLs", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "copisaurus-commit-"));
     fs.mkdirSync(path.join(root, repo.id, "docs"), { recursive: true });
     fs.writeFileSync(path.join(root, repo.id, "docs", "index.md"), "# Commit", "utf8");
@@ -112,6 +114,12 @@ describe("git helpers", () => {
 
     const result = await commitDocumentChange(repo, "edit", ["index.md"], {
       reposRoot: root,
+      env: { COPISAURUS_GITHUB_TOKEN: "secret-token" },
+      provider: {
+        getCommitUrl: (_repo, commit) => `https://github.test/commit/${commit}`,
+        getBranchUrl: (_repo, branch) => `https://github.test/tree/${branch}`,
+        createMergeRequest: async () => ({ url: "https://github.test/pull/1" }),
+      },
       runner: async (args) => {
         calls.push(args);
         if (args[0] === "status") return "M docs/index.md";
@@ -120,14 +128,98 @@ describe("git helpers", () => {
       },
     });
 
-    expect(calls[0]).toEqual(["checkout", "-B", expect.stringMatching(/^copisaurus\//), "main"]);
+    expect(calls[0]).toEqual(["fetch", "origin", "main"]);
+    expect(calls[1]).toEqual(["checkout", "-B", expect.stringMatching(/^copisaurus\/edit-index-/), "origin/main"]);
+    expect(calls).toContainEqual(["push", "-u", "origin", expect.stringMatching(/^copisaurus\/edit-index-/)]);
+    expect(calls.slice(-2)).toEqual([
+      ["checkout", "main"],
+      ["pull", "--ff-only", "origin", "main"],
+    ]);
     expect(result).toEqual({
       committed: true,
       commit: "abc123",
+      commitUrl: "https://github.test/commit/abc123",
       mode: "merge-request",
-      branch: expect.stringMatching(/^copisaurus\//),
-      remoteUrl: null,
-      phase7Pending: true,
+      branch: expect.stringMatching(/^copisaurus\/edit-index-/),
+      branchUrl: expect.stringMatching(/^https:\/\/github.test\/tree\/copisaurus\/edit-index-/),
+      pullRequestUrl: "https://github.test/pull/1",
     });
+  });
+
+  it("creates GitHub pull requests through the provider API without exposing tokens", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const provider = createGitHubProvider({
+      env: { COPISAURUS_GITHUB_TOKEN: "secret-token" } as unknown as NodeJS.ProcessEnv,
+      fetch: async (url, init) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return Response.json({ html_url: "https://github.com/example/research/pull/7" });
+      },
+    });
+
+    const result = await provider.createMergeRequest(repo, {
+      sourceBranch: "copisaurus/edit-index-abc",
+      targetBranch: "main",
+      title: "Update docs",
+      description: "No secrets here.",
+    });
+
+    expect(result.url).toBe("https://github.com/example/research/pull/7");
+    expect(calls[0].url).toBe("https://api.github.com/repos/example/research/pulls");
+    expect(JSON.stringify(calls[0].init.body)).not.toContain("secret-token");
+  });
+
+  it("creates GitLab merge requests through the provider API", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const provider = createGitLabProvider({
+      env: { COPISAURUS_GITLAB_TOKEN: "secret-token" } as unknown as NodeJS.ProcessEnv,
+      fetch: async (url, init) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return Response.json({ web_url: "https://gitlab.example.com/group/research/-/merge_requests/7" });
+      },
+    });
+    const gitlabRepo = makeTestRepo({ provider: "gitlab", repoUrl: "https://gitlab.example.com/group/research.git" });
+
+    const result = await provider.createMergeRequest(gitlabRepo, {
+      sourceBranch: "copisaurus/edit-index-abc",
+      targetBranch: "main",
+      title: "Update docs",
+      description: "No secrets here.",
+    });
+
+    expect(result.url).toBe("https://gitlab.example.com/group/research/-/merge_requests/7");
+    expect(calls[0].url).toBe("https://gitlab.example.com/api/v4/projects/group%2Fresearch/merge_requests");
+    expect(JSON.stringify(calls[0].init.body)).not.toContain("secret-token");
+  });
+
+  it("classifies provider API failures in merge-request mode", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "copisaurus-provider-fail-"));
+    fs.mkdirSync(path.join(root, repo.id, "docs"), { recursive: true });
+    fs.writeFileSync(path.join(root, repo.id, "docs", "index.md"), "# Commit", "utf8");
+
+    const calls: string[][] = [];
+
+    await expect(
+      commitDocumentChange(repo, "edit", ["index.md"], {
+        reposRoot: root,
+        env: { COPISAURUS_GITHUB_TOKEN: "secret-token" },
+        provider: {
+          getCommitUrl: () => "https://git.example/commit/abc",
+          getBranchUrl: () => "https://git.example/branch",
+          createMergeRequest: async () => {
+            throw new Error("GitHub pull request creation failed: validation failed");
+          },
+        },
+        runner: async (args) => {
+          calls.push(args);
+          if (args[0] === "status") return "M docs/index.md";
+          if (args[0] === "rev-parse") return "abc123";
+          return "";
+        },
+      }),
+    ).rejects.toMatchObject({ code: "provider-api" });
+    expect(calls.slice(-2)).toEqual([
+      ["checkout", "main"],
+      ["pull", "--ff-only", "origin", "main"],
+    ]);
   });
 });

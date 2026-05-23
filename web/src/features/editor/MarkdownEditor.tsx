@@ -5,8 +5,17 @@ import { useEffect, useState } from "react";
 const PREVIEW_DEBOUNCE_MS = 120;
 type LinkImpact = { path: string; line: number; snippet: string };
 type PendingConfirmation =
-  | { kind: "rename"; impacts: LinkImpact[]; toPath: string }
+  | { kind: "rename"; impacts: LinkImpact[]; fromPath: string; toPath: string }
   | { kind: "delete"; impacts: LinkImpact[] };
+type CommitResult = {
+  committed?: boolean;
+  commitUrl?: string | null;
+  branch?: string | null;
+  branchUrl?: string | null;
+  pullRequestUrl?: string | null;
+  mode?: "direct" | "branch" | "merge-request";
+};
+type DocumentMutationResult = { commit?: CommitResult; error?: string; code?: string };
 
 export function MarkdownEditorLauncher({ repoSlug, documentPath }: { repoSlug: string; documentPath: string }) {
   const [open, setOpen] = useState(false);
@@ -20,14 +29,18 @@ export function MarkdownEditorLauncher({ repoSlug, documentPath }: { repoSlug: s
 }
 
 function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: string; documentPath: string; onClose: () => void }) {
+  const [currentPath, setCurrentPath] = useState(documentPath);
   const [path, setPath] = useState(documentPath);
   const [source, setSource] = useState("");
   const [preview, setPreview] = useState("");
   const [status, setStatus] = useState("Loading");
+  const [workflowResult, setWorkflowResult] = useState<CommitResult | null>(null);
   const [instruction, setInstruction] = useState("");
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
 
   useEffect(() => {
+    setCurrentPath(documentPath);
+    setPath(documentPath);
     void fetch(`/api/repos/${repoSlug}/documents?path=${encodeURIComponent(documentPath)}`)
       .then((response) => response.json())
       .then((payload) => {
@@ -52,14 +65,28 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
     return () => clearTimeout(handle);
   }, [source, path, repoSlug]);
 
+  function statusFromResult(action: string, payload: DocumentMutationResult, ok: boolean): string {
+    if (!ok) {
+      const label = payload.code === "protected-branch" ? "Protected branch" : payload.code === "conflict" ? "Conflict" : payload.code === "auth" ? "Auth failure" : payload.code === "provider-api" ? "Provider API failure" : `${action} failed`;
+      return `${label}: ${payload.error ?? "Request failed"}`;
+    }
+
+    setWorkflowResult(payload.commit ?? null);
+    if (payload.commit?.pullRequestUrl) return `${action} complete. Pull request is ready.`;
+    if (payload.commit?.branchUrl) return `${action} complete on branch ${payload.commit.branch}.`;
+    if (payload.commit?.commitUrl) return `${action} committed directly.`;
+    return `${action} complete. No file changes to commit.`;
+  }
+
   async function save() {
     setStatus("Saving");
     const response = await fetch(`/api/repos/${repoSlug}/documents`, {
       method: "PUT",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ path, source }),
+      body: JSON.stringify({ path: currentPath, source }),
     });
-    setStatus(response.ok ? "Saved and queued through commit workflow." : "Save failed");
+    const payload = (await response.json()) as DocumentMutationResult;
+    setStatus(statusFromResult("Save", payload, response.ok));
   }
 
   async function create() {
@@ -69,7 +96,11 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ path, source }),
     });
-    setStatus(response.ok ? "Created and queued through commit workflow." : "Create failed");
+    if (response.ok) {
+      setCurrentPath(path);
+    }
+    const payload = (await response.json()) as DocumentMutationResult;
+    setStatus(statusFromResult("Create", payload, response.ok));
   }
 
   async function fetchLinkImpact(kind: "rename" | "delete", targetPath: string) {
@@ -84,8 +115,8 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
 
   async function rename() {
     setStatus("Scanning links");
-    const impacts = await fetchLinkImpact("rename", path);
-    setPendingConfirmation({ kind: "rename", impacts, toPath: path });
+    const impacts = await fetchLinkImpact("rename", currentPath);
+    setPendingConfirmation({ kind: "rename", impacts, fromPath: currentPath, toPath: path });
     setStatus("");
   }
 
@@ -98,18 +129,20 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
     const response = await fetch(`/api/repos/${repoSlug}/documents`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ fromPath: path, toPath, confirmed: true }),
+      body: JSON.stringify({ fromPath: pendingConfirmation.fromPath, toPath, confirmed: true }),
     });
     if (response.ok) {
+      setCurrentPath(toPath);
       setPath(toPath);
       setPendingConfirmation(null);
     }
-    setStatus(response.ok ? "Renamed and queued through commit workflow." : "Rename failed");
+    const payload = (await response.json()) as DocumentMutationResult;
+    setStatus(statusFromResult("Rename", payload, response.ok));
   }
 
   async function remove() {
     setStatus("Scanning links");
-    const impacts = await fetchLinkImpact("delete", path);
+    const impacts = await fetchLinkImpact("delete", currentPath);
     setPendingConfirmation({ kind: "delete", impacts });
     setStatus("");
   }
@@ -122,12 +155,13 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
     const response = await fetch(`/api/repos/${repoSlug}/documents`, {
       method: "DELETE",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ path, confirmed: true }),
+      body: JSON.stringify({ path: currentPath, confirmed: true }),
     });
     if (response.ok) {
       setPendingConfirmation(null);
     }
-    setStatus(response.ok ? "Deleted and queued through commit workflow." : "Delete failed");
+    const payload = (await response.json()) as DocumentMutationResult;
+    setStatus(statusFromResult("Delete", payload, response.ok));
   }
 
   async function applyAiEdit() {
@@ -135,7 +169,7 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
     const response = await fetch(`/api/repos/${repoSlug}/ai/edit`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ path, source, instruction }),
+      body: JSON.stringify({ path: currentPath, source, instruction }),
     });
     const payload = (await response.json()) as { source?: string; error?: string };
     if (!response.ok || typeof payload.source !== "string") {
@@ -162,11 +196,19 @@ function MarkdownEditorModal({ repoSlug, documentPath, onClose }: { repoSlug: st
           <button type="button" disabled={!instruction.trim()} onClick={() => void applyAiEdit()}>Apply AI Edit</button>
           <span>{status}</span>
         </div>
+        {workflowResult ? (
+          <section className="editor-workflow-result" aria-label="Commit workflow result">
+            <strong>{workflowResult.mode === "merge-request" ? "Review request created" : workflowResult.mode === "branch" ? "Branch committed" : "Direct commit"}</strong>
+            {workflowResult.commitUrl ? <a href={workflowResult.commitUrl}>Commit</a> : null}
+            {workflowResult.branchUrl ? <a href={workflowResult.branchUrl}>Branch</a> : null}
+            {workflowResult.pullRequestUrl ? <a href={workflowResult.pullRequestUrl}>PR/MR</a> : null}
+          </section>
+        ) : null}
         {pendingConfirmation ? (
           <section className="editor-confirmation" aria-label={`${pendingConfirmation.kind} confirmation`}>
             <div>
               <strong>{pendingConfirmation.kind === "rename" ? "Confirm rename" : "Confirm delete"}</strong>
-              <span>{path}</span>
+              <span>{pendingConfirmation.kind === "rename" ? pendingConfirmation.fromPath : currentPath}</span>
             </div>
             {pendingConfirmation.kind === "rename" ? (
               <input

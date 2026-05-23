@@ -13,6 +13,7 @@ const repo: RepositoryConfig = {
   defaultBranch: "main",
   docsPath: "docs",
   visibility: "private",
+  ai: { enabled: true },
   commit: {
     mode: "merge-request",
     targetBranch: "main",
@@ -29,10 +30,15 @@ describe("SQLite initialization", () => {
 
       const repos = listRepositories(handle.db);
       const syncRows = handle.sqlite.prepare("SELECT repo_id, status FROM repo_sync_state").all();
+      const tables = handle.sqlite
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('document_metadata', 'audit_events')")
+        .all()
+        .map((row) => (row as { name: string }).name);
 
       expect(repos).toHaveLength(1);
       expect(repos[0].slug).toBe("research");
       expect(syncRows).toEqual([{ repo_id: "research", status: "idle" }]);
+      expect(tables.sort()).toEqual(["audit_events", "document_metadata"]);
     } finally {
       handle.sqlite.close();
     }

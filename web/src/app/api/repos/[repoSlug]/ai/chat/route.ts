@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ rep
   if (!canReadRepo(repo, user)) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
-  if (!canUseAi(config, user)) {
+  if (!canUseAi(config, user, repo)) {
     return NextResponse.json({ error: "AI requires an authenticated user." }, { status: 401 });
   }
 

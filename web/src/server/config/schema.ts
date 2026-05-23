@@ -81,6 +81,12 @@ const defaultCommitConfig = {
   branchPrefix: "copisaurus/",
 };
 
+const repoAiSchema = z
+  .object({
+    enabled: z.boolean().default(true),
+  })
+  .default({ enabled: true });
+
 export const repositoryConfigSchema = z.object({
   id: z
     .string()
@@ -94,6 +100,7 @@ export const repositoryConfigSchema = z.object({
   defaultBranch: gitRefSchema.default("main"),
   docsPath: relativePathSchema.default("docs"),
   visibility: z.enum(["private", "public"]).default("private"),
+  ai: repoAiSchema,
   commit: commitSchema.default(defaultCommitConfig),
 });
 

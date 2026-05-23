@@ -22,23 +22,17 @@ export function AppShell({ config, user }: AppShellProps) {
           <span className="brand-text">{appName}</span>
         </Link>
 
-        <div className="search-placeholder" role="search" aria-label="Search placeholder">
-          <span aria-hidden="true">Search</span>
-          <span>Search docs and ask Copisaurus</span>
+        <div className="search-placeholder" role="search" aria-label="Repository search status">
+          <span aria-hidden="true">Docs</span>
+          <span>Open a repository to search, browse, edit, and ask AI.</span>
         </div>
 
         <div className="navbar-actions">
-          <select className="repo-switcher" aria-label="Repository">
-            {repos.length > 0 ? (
-              repos.map((repo) => (
-                <option key={repo.id} value={repo.slug}>
-                  {repo.name}
-                </option>
-              ))
-            ) : (
-              <option>No repositories</option>
-            )}
-          </select>
+          {repos[0] ? (
+            <Link className="nav-link" href={`/${repos[0].slug}`}>
+              Open docs
+            </Link>
+          ) : null}
           {user?.role === "admin" ? (
             <Link className="nav-link" href="/admin">
               Admin
@@ -66,23 +60,18 @@ export function AppShell({ config, user }: AppShellProps) {
       <div className="docs-frame">
         <aside className="docs-sidebar" aria-label="Docs navigation">
           <p className="sidebar-heading">Docs</p>
-          <a className="sidebar-item active" href="#overview">
-            Overview
-          </a>
-          <a className="sidebar-item" href="#navigation">
-            Navigation placeholder
-          </a>
-          <a className="sidebar-item" href="#sync">
-            Sync status placeholder
-          </a>
+          <a className="sidebar-item active" href="#overview">Repositories</a>
+          {repos.map((repo) => (
+            <Link className="sidebar-item" href={`/${repo.slug}`} key={repo.id}>
+              {repo.name}
+            </Link>
+          ))}
+          {user?.role === "admin" ? <Link className="sidebar-item" href="/admin">Admin</Link> : null}
         </aside>
 
         <section className="doc-content" id="overview">
-          <h1 className="page-title">Migration foundation</h1>
-          <p>
-            This App Router shell is ready for the next migration phases while the existing FastAPI
-            and Docusaurus apps remain available as references.
-          </p>
+          <h1 className="page-title">Documentation repositories</h1>
+          <p>Choose a repository to browse Markdown docs, use repository search, and edit content through the configured Git workflow.</p>
           <div className="repo-grid" aria-label="Repositories">
             {repos.map((repo) => {
               const privateLocked = repo.visibility === "private" && !user;
@@ -103,8 +92,8 @@ export function AppShell({ config, user }: AppShellProps) {
             })}
           </div>
           <div className="placeholder-panel" id="navigation">
-            <h2>Docs layout placeholder</h2>
-            <p>Markdown rendering, generated navigation, search, sync, and editor features are deferred.</p>
+            <h2>Repository tools</h2>
+            <p>Admins can review sync status, users, audit events, AI provider status, and safe repository configuration from the admin console.</p>
           </div>
         </section>
       </div>
