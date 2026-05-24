@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import path from "node:path";
 import os from "node:os";
-import { createSqliteDatabase, importRepositoriesFromConfig, listRepositories, resolveDatabasePath } from "@/server/db";
+import {
+  createSqliteDatabase,
+  getRepositoryById,
+  getRepositoryBySlug,
+  importRepositoriesFromConfig,
+  listRepositories,
+  listRepositorySyncStatuses,
+  resolveDatabasePath,
+} from "@/server/db";
 import type { RepositoryConfig } from "@/server/config";
 
 const repo: RepositoryConfig = {
@@ -37,6 +45,14 @@ describe("SQLite initialization", () => {
 
       expect(repos).toHaveLength(1);
       expect(repos[0].slug).toBe("research");
+      expect(getRepositoryBySlug(handle.db, "research")?.id).toBe("research");
+      expect(getRepositoryById(handle.db, "research")?.slug).toBe("research");
+      expect(listRepositorySyncStatuses(handle.db)[0]).toMatchObject({
+        id: "research",
+        slug: "research",
+        status: "idle",
+        lastSyncedCommit: null,
+      });
       expect(syncRows).toEqual([{ repo_id: "research", status: "idle" }]);
       expect(tables.sort()).toEqual(["audit_events", "document_metadata"]);
     } finally {
@@ -67,6 +83,21 @@ describe("SQLite initialization", () => {
         process.env.NEXT_PHASE = originalPhase;
       }
 
+      if (originalPath === undefined) {
+        delete process.env.LEGIT_DATABASE_PATH;
+      } else {
+        process.env.LEGIT_DATABASE_PATH = originalPath;
+      }
+    }
+  });
+
+  it("prefers explicit database paths over defaults", () => {
+    const originalPath = process.env.LEGIT_DATABASE_PATH;
+
+    try {
+      process.env.LEGIT_DATABASE_PATH = "/tmp/custom-legit.db";
+      expect(resolveDatabasePath()).toBe("/tmp/custom-legit.db");
+    } finally {
       if (originalPath === undefined) {
         delete process.env.LEGIT_DATABASE_PATH;
       } else {

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { notFound, redirect } from "next/navigation";
 import { canReadRepo, canUseAi, getCurrentUser } from "@/server/auth";
 import { loadConfigForShell } from "@/server/config";
-import { buildDocsTree, resolveRouteDocument } from "@/server/docs";
+import { buildDocsTree, loadRouteDocument } from "@/server/docs";
 import { generateTableOfContents, renderMarkdown } from "@/server/markdown";
 import { DocsPage } from "@/features/docs/DocsPage";
 
@@ -31,7 +31,7 @@ export default async function RepoDocPage({
     redirect(`/api/auth/signin?callbackUrl=${encodeURIComponent(callbackPath)}`);
   }
 
-  const resolved = resolveRouteDocument(repo, docPath);
+  const resolved = await loadRouteDocument(config, repo, docPath);
   if (!resolved) {
     notFound();
   }

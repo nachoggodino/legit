@@ -43,18 +43,23 @@ function ensureFlag(args, names, fallback) {
 }
 
 const fileEnv = parseEnvFile(envPath);
+const defaultMockDocConfigPath = path.resolve(root, "./config/legit.mock-doc.yaml");
 const env = {
   ...process.env,
   ...fileEnv,
   AUTH_SECRET: process.env.AUTH_SECRET ?? fileEnv.AUTH_SECRET ?? "legit-local-dev-secret",
   AUTH_URL: process.env.AUTH_URL ?? fileEnv.AUTH_URL ?? "http://localhost:3000",
-  LEGIT_CONFIG_PATH: process.env.LEGIT_CONFIG_PATH ?? fileEnv.LEGIT_CONFIG_PATH ?? "./config/legit.mock-doc.yaml",
+  // Keep the selected dev mode deterministic. `.env.local` may provide shared
+  // secrets and writable paths, but it should not silently switch the repo config.
+  LEGIT_CONFIG_PATH: process.env.LEGIT_CONFIG_PATH ?? "./config/legit.mock-doc.yaml",
   LEGIT_DATABASE_PATH: process.env.LEGIT_DATABASE_PATH ?? fileEnv.LEGIT_DATABASE_PATH ?? "./.codex-dev/legit.db",
   LEGIT_REPOS_ROOT: process.env.LEGIT_REPOS_ROOT ?? fileEnv.LEGIT_REPOS_ROOT ?? "./.codex-dev/repos",
 };
 
+const selectedConfigPath = path.resolve(root, env.LEGIT_CONFIG_PATH);
+const usingDefaultMockDocConfig = selectedConfigPath === defaultMockDocConfigPath;
 const required = ["LEGIT_GITHUB_TOKEN", "AUTH_GITHUB_ID", "AUTH_GITHUB_SECRET"];
-const missing = required.filter((name) => !env[name]);
+const missing = usingDefaultMockDocConfig ? required.filter((name) => !env[name]) : [];
 
 if (missing.length > 0) {
   console.error("mock-doc dev server is not configured.");

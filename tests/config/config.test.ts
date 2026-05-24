@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
-import { isConfigWritable, parseConfigText, updateSafeRepositoryConfig } from "@/server/config";
+import { ConfigLoadError, isConfigWritable, loadConfigForShell, parseConfigFile, parseConfigText, updateSafeRepositoryConfig } from "@/server/config";
 import { resolveConfigPath } from "@/server/config/load";
 
 const validConfig = `
@@ -212,6 +212,14 @@ repos:
     expect(isConfigWritable("/path/that/does/not/exist/legit.yaml")).toBe(false);
   });
 
+  it("parses config files from disk", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "copi-config-file-"));
+    const configPath = path.join(dir, "legit.yaml");
+    fs.writeFileSync(configPath, validConfig, "utf8");
+
+    expect(parseConfigFile(configPath).repos[0].id).toBe("research");
+  });
+
   it("falls back to the root legit.example.yaml during local development", () => {
     const previousNodeEnv = process.env.NODE_ENV;
     const previousConfigPath = process.env.LEGIT_CONFIG_PATH;
@@ -222,6 +230,32 @@ repos:
       delete env.LEGIT_CONFIG_PATH;
 
       expect(resolveConfigPath()).toBe(path.resolve(process.cwd(), "legit.example.yaml"));
+    } finally {
+      if (previousNodeEnv === undefined) {
+        delete env.NODE_ENV;
+      } else {
+        env.NODE_ENV = previousNodeEnv;
+      }
+
+      if (previousConfigPath === undefined) {
+        delete env.LEGIT_CONFIG_PATH;
+      } else {
+        env.LEGIT_CONFIG_PATH = previousConfigPath;
+      }
+    }
+  });
+
+  it("fails closed for missing production config and shell loading", () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    const previousConfigPath = process.env.LEGIT_CONFIG_PATH;
+    const env = process.env as Record<string, string | undefined>;
+
+    try {
+      env.NODE_ENV = "production";
+      env.LEGIT_CONFIG_PATH = "/tmp/legit-missing-config.yaml";
+
+      expect(() => resolveConfigPath()).toThrow(ConfigLoadError);
+      expect(loadConfigForShell()).toBeNull();
     } finally {
       if (previousNodeEnv === undefined) {
         delete env.NODE_ENV;

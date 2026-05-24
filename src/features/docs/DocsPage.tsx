@@ -22,8 +22,6 @@ export type DocsPageProps = {
 };
 
 export function DocsPage({ repo, user, markdownPath, title, html, tree, toc, aiEnabled, hasDocumentTitleHeading }: DocsPageProps) {
-  const signInLinkProps = { target: "_blank", rel: "noopener noreferrer" } as const;
-
   return (
     <main className="app-shell">
       <nav className="top-navbar" aria-label="Primary">
@@ -40,7 +38,7 @@ export function DocsPage({ repo, user, markdownPath, title, html, tree, toc, aiE
               <span className="role-pill">{user.role}</span>
             </span>
           ) : (
-            <Link className="nav-link" href={buildSignInHref(`/${repo.slug}`)} {...signInLinkProps}>
+            <Link className="nav-link" href={buildSignInHref(`/${repo.slug}`)} rel="noopener noreferrer" target="_blank">
               Log in
             </Link>
           )}

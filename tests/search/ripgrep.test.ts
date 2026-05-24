@@ -1,9 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createSqliteDatabase, importRepositoriesFromConfig } from "@/server/db";
-import { buildRipgrepArgs, searchRepositoryDocs, upsertDocumentMetadata } from "@/server/search";
+import { createSqliteDatabase, documentMetadata, importRepositoriesFromConfig } from "@/server/db";
+import { buildRipgrepArgs, readCandidateFiles, reindexRepositoryDocuments, searchRepositoryDocs, upsertDocumentMetadata } from "@/server/search";
 
 const repo = { id: "repo", docsPath: "docs" };
 const configRepo = {
@@ -65,6 +65,27 @@ describe("ripgrep search wrapper", () => {
     ).rejects.toThrow("malformed JSON");
   });
 
+  it("returns no results for blank queries and ignores non-match events", async () => {
+    const runner = vi.fn(async () => ({ stdout: "" }));
+    await expect(searchRepositoryDocs(repo, "   ", { runner })).resolves.toEqual([]);
+    expect(runner).not.toHaveBeenCalled();
+
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "copi-search-"));
+    fs.mkdirSync(path.join(root, "repo", "docs"), { recursive: true });
+    const output = [
+      JSON.stringify({ type: "begin", data: { path: { text: "index.md" } } }),
+      JSON.stringify({ type: "match", data: { path: { text: "image.png" }, line_number: 1, lines: { text: "needle" } } }),
+      JSON.stringify({ type: "match", data: { path: { text: "index.md" }, lines: { text: "needle" } } }),
+    ].join("\n");
+
+    await expect(
+      searchRepositoryDocs(repo, "needle", {
+        reposRoot: root,
+        runner: async () => ({ stdout: output }),
+      }),
+    ).resolves.toEqual([{ repoId: "repo", path: "index.md", line: 1, snippet: "needle" }]);
+  });
+
   it("enriches search results with indexed document metadata", async () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "copi-search-"));
     fs.mkdirSync(path.join(root, "repo", "docs"), { recursive: true });
@@ -82,5 +103,37 @@ describe("ripgrep search wrapper", () => {
 
     sqlite.close();
     expect(results[0].title).toBe("Indexed Title");
+  });
+
+  it("reads candidate files with byte limits", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "copi-search-"));
+    fs.mkdirSync(path.join(root, "repo", "docs"), { recursive: true });
+    fs.writeFileSync(path.join(root, "repo", "docs", "index.md"), "# Title\n\nLong body", "utf8");
+
+    expect(readCandidateFiles(repo, ["index.md"], { reposRoot: root, maxBytes: 7 })).toEqual([
+      { path: "index.md", source: "# Title" },
+    ]);
+  });
+
+  it("reindexes markdown documents and skips missing docs roots", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "copi-search-"));
+    const { db, sqlite } = createSqliteDatabase(":memory:");
+
+    try {
+      importRepositoriesFromConfig(db, [configRepo]);
+      expect(reindexRepositoryDocuments(db, repo, { reposRoot: root })).toBe(0);
+
+      fs.mkdirSync(path.join(root, "repo", "docs", "guide"), { recursive: true });
+      fs.writeFileSync(path.join(root, "repo", "docs", "index.md"), "---\ntitle: Frontmatter\n---\n# Indexed\n\nSummary text.", "utf8");
+      fs.writeFileSync(path.join(root, "repo", "docs", "guide", "start.md"), "# Start\n\n```ts\ncode\n```\n\nUsable summary.", "utf8");
+
+      expect(reindexRepositoryDocuments(db, repo, { reposRoot: root, commit: "abc123" })).toBe(2);
+      const rows = db.select().from(documentMetadata).all();
+      expect(rows.map((row) => row.path).sort()).toEqual(["guide/start.md", "index.md"]);
+      expect(rows.find((row) => row.path === "index.md")?.summary).toBe("Summary text.");
+      expect(rows.find((row) => row.path === "guide/start.md")?.summary).toBe("Usable summary.");
+    } finally {
+      sqlite.close();
+    }
   });
 });

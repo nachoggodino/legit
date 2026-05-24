@@ -12,6 +12,14 @@ export default defineConfig({
     environment: "node",
     globals: true,
     include: ["tests/**/*.test.ts", "tests/**/*.test.tsx"],
+    coverage: {
+      exclude: ["tests/**"],
+      thresholds: {
+        statements: 80,
+        functions: 80,
+        lines: 80,
+      },
+    },
   },
   resolve: {
     alias: {

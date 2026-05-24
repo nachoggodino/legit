@@ -48,7 +48,9 @@ const env = {
   ...fileEnv,
   AUTH_SECRET: process.env.AUTH_SECRET ?? fileEnv.AUTH_SECRET ?? "legit-local-dev-secret",
   AUTH_URL: process.env.AUTH_URL ?? fileEnv.AUTH_URL ?? "http://localhost:3000",
-  LEGIT_CONFIG_PATH: process.env.LEGIT_CONFIG_PATH ?? fileEnv.LEGIT_CONFIG_PATH ?? "./config/legit.local.yaml",
+  // Keep the selected dev mode deterministic. `.env.local` may provide shared
+  // secrets and writable paths, but it should not silently switch the repo config.
+  LEGIT_CONFIG_PATH: process.env.LEGIT_CONFIG_PATH ?? "./config/legit.local.yaml",
   LEGIT_DATABASE_PATH:
     process.env.LEGIT_DATABASE_PATH ?? fileEnv.LEGIT_DATABASE_PATH ?? "./.codex-dev/legit.db",
   LEGIT_REPOS_ROOT: process.env.LEGIT_REPOS_ROOT ?? fileEnv.LEGIT_REPOS_ROOT ?? "./.codex-dev/repos",

@@ -37,6 +37,19 @@ export function isRepoLocked(repoId: string): boolean {
   return repoLocks.has(repoId);
 }
 
+export async function waitForRepoUnlock(repoId: string): Promise<void> {
+  const pending = repoLocks.get(repoId);
+  if (!pending) {
+    return;
+  }
+
+  try {
+    await pending;
+  } catch {
+    // Route reads only need the lock to settle before retrying local resolution.
+  }
+}
+
 export async function syncRepository(
   db: DbClient,
   repo: RepositoryConfig,

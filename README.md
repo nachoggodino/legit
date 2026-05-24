@@ -29,15 +29,15 @@ corepack pnpm install
 npm run dev
 ```
 
-`npm run dev` starts the Next.js app on `http://localhost:3000`, uses writable local paths under `.codex-dev/`, and loads `config/legit.local.yaml`.
+`npm run dev` starts the Next.js app on `http://localhost:3000`, uses writable local paths under `.codex-dev/`, and loads `config/legit.mock-doc.yaml`.
 
-Local testing uses [`.env.local.example`](/home/slenderai/PROJECTS/legit/.env.local.example) as the template for `.env.local`. Container deployments can use [`.env.example`](/home/slenderai/PROJECTS/legit/.env.example) or [`.env.production.example`](/home/slenderai/PROJECTS/legit/.env.production.example).
+Local testing uses [`.env.local.example`](/home/slenderai/PROJECTS/legit/.env.local.example) as the template for `.env.local`. The dev scripts now choose the config file themselves: `npm run dev` always uses the mock-doc repo, while `npm run dev:local` uses the placeholder local config. Container deployments can use [`.env.example`](/home/slenderai/PROJECTS/legit/.env.example) or [`.env.production.example`](/home/slenderai/PROJECTS/legit/.env.production.example).
 
 For the private GitHub test repository, configure `.env.local`, then run:
 
 ```bash
 cp .env.mock-doc.example .env.local
-npm run dev:mock-doc
+npm run dev
 ```
 
 The checked-in mock config uses `https://github.com/nachoggodino/mock-doc` and stores runtime data under `.codex-dev/`. The mock-doc dev runner fails fast if GitHub OAuth or repository token settings are missing.

@@ -14,7 +14,6 @@ export function AppShell({ config, user }: AppShellProps) {
   const appName = config?.app.name ?? "Legit";
   const firstRepo = repos[0];
   const firstRepoLocked = firstRepo?.visibility === "private" && !user;
-  const signInLinkProps = { target: "_blank", rel: "noopener noreferrer" } as const;
 
   return (
     <main className="app-shell">
@@ -36,7 +35,8 @@ export function AppShell({ config, user }: AppShellProps) {
             <Link
               className="nav-link primary-action"
               href={firstRepoLocked ? buildSignInHref(`/${firstRepo.slug}`) : `/${firstRepo.slug}`}
-              {...(firstRepoLocked ? signInLinkProps : {})}
+              rel={firstRepoLocked ? "noopener noreferrer" : undefined}
+              target={firstRepoLocked ? "_blank" : undefined}
             >
               Open docs
             </Link>
@@ -57,7 +57,7 @@ export function AppShell({ config, user }: AppShellProps) {
               </Link>
             </>
           ) : (
-            <Link className="nav-link" href={buildSignInHref("/")} {...signInLinkProps}>
+            <Link className="nav-link" href={buildSignInHref("/")} rel="noopener noreferrer" target="_blank">
               Log in
             </Link>
           )}
@@ -89,7 +89,8 @@ export function AppShell({ config, user }: AppShellProps) {
                   className={`repo-card${privateLocked ? " locked" : ""}`}
                   href={privateLocked ? buildSignInHref(`/${repo.slug}`) : `/${repo.slug}`}
                   key={repo.id}
-                  {...(privateLocked ? signInLinkProps : {})}
+                  rel={privateLocked ? "noopener noreferrer" : undefined}
+                  target={privateLocked ? "_blank" : undefined}
                 >
                   <span className="repo-card-title">{repo.name}</span>
                   <span className="repo-card-meta">
