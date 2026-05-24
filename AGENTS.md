@@ -1,17 +1,17 @@
-# Copisaurus Agent Instructions
+# Legit Agent Instructions
 
 ## Target Architecture
 
-Work in `web/` for the production app. It is a Next.js App Router application with TypeScript, Auth.js, SQLite/Drizzle, server modules, and Git-backed Markdown repositories.
+Work at the repository root for the production app. It is a Next.js App Router application with TypeScript, Auth.js, SQLite/Drizzle, server modules, and Git-backed Markdown repositories.
 
 ## Boundaries
 
 - Keep route handlers thin.
-- Put Git sync/write/provider API logic in `web/src/server/git`.
-- Put commit workflow orchestration in `web/src/server/git` or `web/src/server/commit`.
-- Put admin logic in `web/src/server/admin` or focused server modules.
-- Put audit logic in `web/src/server/audit`.
-- Put config file editing in `web/src/server/config`.
+- Put Git sync/write/provider API logic in `src/server/git`.
+- Put commit workflow orchestration in `src/server/git` or `src/server/commit`.
+- Put admin logic in `src/server/admin` or focused server modules.
+- Put audit logic in `src/server/audit`.
+- Put config file editing in `src/server/config`.
 - Keep Drizzle queries behind server/db or focused server modules.
 
 ## Security
@@ -26,4 +26,4 @@ Work in `web/` for the production app. It is a Next.js App Router application wi
 
 ## Testing
 
-Use Vitest, React Testing Library, and Playwright from `web/`. Mock GitHub, GitLab, OAuth, and AI providers. Do not call real external providers from tests.
+Use Vitest, React Testing Library, and Playwright from the repository root. Mock GitHub, GitLab, OAuth, and AI providers. Do not call real external providers from tests.

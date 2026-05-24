@@ -1,0 +1,36 @@
+app:
+  name: Legit
+
+auth:
+  defaultRole: viewer
+  admins:
+    emails:
+      - admin@example.com
+    domains: []
+
+ai:
+  enabled: false
+  baseUrlEnv: AI_BASE_URL
+  apiKeyEnv: AI_API_KEY
+  defaultModel: gpt-4o
+  maxContextTokens: 150000
+  allowAnonymous: false
+
+sync:
+  intervalSeconds: 120
+  pullOnStartup: true
+  reindexOnChange: true
+
+repos:
+  - id: mock-doc
+    slug: mock-doc
+    name: Mock Doc
+    provider: github
+    repoUrl: https://github.com/nachoggodino/mock-doc
+    defaultBranch: master
+    docsPath: docs
+    visibility: private
+    commit:
+      mode: branch
+      targetBranch: master
+      branchPrefix: legit/

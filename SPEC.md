@@ -1,12 +1,12 @@
-# SPEC - Copisaurus
+# SPEC - Legit
 
 Version: 0.4 - May 2026
 
 ## Overview
 
-Copisaurus is a single-tenant, self-hosted documentation platform for exposing one or more Git-backed Markdown document trees. The canonical document content remains in Git; Copisaurus owns runtime metadata, authentication state, audit logs, sync/index status, Markdown rendering, and optional AI assistance.
+Legit is a single-tenant, self-hosted documentation platform for exposing one or more Git-backed Markdown document trees. The canonical document content remains in Git; Legit owns runtime metadata, authentication state, audit logs, sync/index status, Markdown rendering, and optional AI assistance.
 
-The app is `web/`, a Next.js App Router application deployed as a long-running Node server.
+The app lives at the repository root, as a Next.js App Router application deployed as a long-running Node server.
 
 ## Core Stack
 

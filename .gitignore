@@ -28,17 +28,30 @@ Thumbs.db
 # Local env files
 .env
 .env.*
+!.env.example
+!.env.local.example
+!.env.mock-doc.example
+!.env.production.example
 
 # Cloned docs repo (runtime artifact, populated by backend on startup)
 docs-repo/
-!.env.example
 
 # Node modules (if frontend is added)
 node_modules/
+web/node_modules/
 
 # Build outputs
 /dist/
 /build/
+.next/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+web/.next/
+web/coverage/
+web/test-results/
+web/*.tsbuildinfo
 
 # Docosaurus auto-generated folder
 .docusaurus/
@@ -71,3 +84,5 @@ docker-compose.override.yml
 
 # Local Codex/runtime state
 .codex-dev/
+web/.codex-dev/
+web/.env.local

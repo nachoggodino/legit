@@ -1,0 +1,36 @@
+app:
+  name: Legit
+
+auth:
+  defaultRole: viewer
+  admins:
+    emails:
+      - admin@example.com
+    domains: []
+
+ai:
+  enabled: false
+  baseUrlEnv: AI_BASE_URL
+  apiKeyEnv: AI_API_KEY
+  defaultModel: gpt-4o
+  maxContextTokens: 150000
+  allowAnonymous: false
+
+sync:
+  intervalSeconds: 120
+  pullOnStartup: false
+  reindexOnChange: false
+
+repos:
+  - id: research
+    slug: research
+    name: Research Wiki
+    provider: gitlab
+    repoUrl: https://gitlab.example.com/group/research
+    defaultBranch: main
+    docsPath: docs
+    visibility: private
+    commit:
+      mode: merge-request
+      targetBranch: main
+      branchPrefix: legit/

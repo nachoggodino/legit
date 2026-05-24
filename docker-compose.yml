@@ -1,19 +1,19 @@
 services:
   app:
     build:
-      context: ./web
+      context: .
       dockerfile: Dockerfile
     ports:
       - "3000:3000"
     env_file:
       - .env
     environment:
-      COPISAURUS_CONFIG_PATH: /config/copisaurus.yaml
-      COPISAURUS_DATABASE_PATH: /data/copisaurus.db
-      COPISAURUS_REPOS_ROOT: /data/repos
+      LEGIT_CONFIG_PATH: /config/legit.yaml
+      LEGIT_DATABASE_PATH: /data/legit.db
+      LEGIT_REPOS_ROOT: /data/repos
     volumes:
-      - copisaurus-data:/data
-      - ./copisaurus.example.yaml:/config/copisaurus.yaml:ro
+      - legit-data:/data
+      - ./legit.example.yaml:/config/legit.yaml:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -24,4 +24,4 @@ services:
       start_interval: 5s
 
 volumes:
-  copisaurus-data:
+  legit-data:

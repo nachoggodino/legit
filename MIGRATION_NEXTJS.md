@@ -1,15 +1,15 @@
-# Copisaurus Next.js Migration Plan
+# Legit Next.js Migration Plan
 
 Status: implementation plan with Phase 10 cutover implemented  
 Date: 2026-05-23
 
-This document captures the agreed migration direction for moving Copisaurus from the current Docusaurus + FastAPI prototype into a production-oriented, self-hosted-first Next.js application.
+This document captures the agreed migration direction for moving Legit from the current Docusaurus + FastAPI prototype into a production-oriented, self-hosted-first Next.js application.
 
 The goal is a clean production architecture, even if the migration takes time. The current app is not in production, so the migration can be a full replacement rather than a compatibility-preserving refactor.
 
 ## 1. Locked Product Direction
 
-Copisaurus will become a single-tenant, self-hosted documentation platform for exposing Git-backed Markdown document trees with AI assistance.
+Legit will become a single-tenant, self-hosted documentation platform for exposing Git-backed Markdown document trees with AI assistance.
 
 The production target is:
 
@@ -22,7 +22,7 @@ The production target is:
 - Markdown-first content model.
 - No arbitrary MDX/React execution in v1.
 - Git remains the source of truth for documents.
-- Copisaurus owns runtime metadata, auth state, audit logs, indexing state, and operational state.
+- Legit owns runtime metadata, auth state, audit logs, indexing state, and operational state.
 
 ## 2. Target Architecture
 
@@ -42,10 +42,10 @@ The app must not assume serverless or edge deployment. Core routes run in the No
 Persistent paths:
 
 ```text
-/data/copisaurus.db
+/data/legit.db
 /data/repos/<repo-id>
 /data/cache
-/config/copisaurus.yaml
+/config/legit.yaml
 ```
 
 Final architecture removes the current `backend/` FastAPI app and `frontend/` Docusaurus app after parity is reached.
@@ -59,7 +59,7 @@ During migration:
 ```text
 backend/       existing FastAPI reference implementation
 frontend/      existing Docusaurus reference implementation
-web/           new Next.js app
+web/           temporary Next.js app location during migration
 ```
 
 At cutover:
@@ -195,14 +195,14 @@ Repository configuration is file-first.
 Primary config file:
 
 ```text
-/config/copisaurus.yaml
+/config/legit.yaml
 ```
 
 Example:
 
 ```yaml
 app:
-  name: Copisaurus
+  name: Legit
 
 auth:
   defaultRole: viewer
@@ -235,7 +235,7 @@ repos:
     commit:
       mode: merge-request
       targetBranch: main
-      branchPrefix: copisaurus/
+      branchPrefix: legit/
 ```
 
 Secrets remain external in v1:
@@ -318,7 +318,7 @@ Rules:
 - Admin UI requires `admin`.
 - Per-repo RBAC is deferred.
 
-Git credentials are not per-user in v1. Commits use configured bot/service credentials. Audit logs and commit messages should record the Copisaurus user responsible for the action.
+Git credentials are not per-user in v1. Commits use configured bot/service credentials. Audit logs and commit messages should record the Legit user responsible for the action.
 
 ## 10. Git Providers And Commit Workflows
 
@@ -339,7 +339,7 @@ Production recommended default: `merge-request`.
 
 Audit every write operation:
 
-- Copisaurus user
+- Legit user
 - repo id
 - operation type
 - source path
@@ -352,8 +352,8 @@ Audit every write operation:
 
 Phase 7 implementation note:
 
-- Markdown create/edit/rename/delete flows now run commit workflows through `web/src/server/git/commit.ts`.
-- GitHub PR and GitLab MR creation live behind provider modules in `web/src/server/git/providers`.
+- Markdown create/edit/rename/delete flows now run commit workflows through `src/server/git/commit.ts`.
+- GitHub PR and GitLab MR creation live behind provider modules in `src/server/git/providers`.
 - Writes use service credentials from env vars only.
 - Protected branch, auth, conflict, and provider API failures are surfaced as classified workflow errors.
 
@@ -388,7 +388,7 @@ This avoids the current mismatch between Docusaurus build-time MDX and runtime `
 
 Do not keep `_index.json` as a committed generated artifact in the docs repository.
 
-Generated index state belongs to Copisaurus runtime state in SQLite/cache.
+Generated index state belongs to Legit runtime state in SQLite/cache.
 
 v1 search:
 
@@ -619,7 +619,7 @@ Docs to update/create:
 - `README.md`
 - `SPEC.md`
 - `.env.example`
-- `copisaurus.example.yaml`
+- `legit.example.yaml`
 - `AGENTS.md`
 - `.agents/**`
 - this migration plan
@@ -658,7 +658,7 @@ Do not call real external services in tests. Mock Git providers and AI HTTP call
 
 ### Phase 0: Planning And Scaffolding
 
-- Create `web/` Next.js app.
+- Create the Next.js app.
 - Configure pnpm, TypeScript, linting, formatting, Vitest, Playwright.
 - Add Dockerfile for long-running Next standalone server.
 - Add `/data` and `/config` conventions.
@@ -666,7 +666,7 @@ Do not call real external services in tests. Mock Git providers and AI HTTP call
 
 ### Phase 1: Config, DB, And App Shell
 
-- Add `copisaurus.yaml` parser and Zod schema.
+- Add `legit.yaml` parser and Zod schema.
 - Add SQLite/Drizzle setup.
 - Add repo import/sync state tables.
 - Build app shell:
@@ -747,7 +747,7 @@ Do not call real external services in tests. Mock Git providers and AI HTTP call
 
 - Rewrite `README.md`.
 - Rewrite `SPEC.md`.
-- Add `copisaurus.example.yaml`.
+- Add `legit.example.yaml`.
 - Update `.env.example`.
 - Create `AGENTS.md`.
 - Create `.agents/skills/*`.
@@ -820,7 +820,7 @@ Mitigation: use existing tests as contracts and port them early.
 No major architecture blockers remain. Minor decisions can be made during implementation:
 
 - exact package versions
-- `web/` vs immediate root Next.js placement during migration
+- Next.js root placement after migration cutover
 - exact Drizzle migration layout
 - exact Auth.js session strategy
 - Mermaid support in v1 or phase 2
