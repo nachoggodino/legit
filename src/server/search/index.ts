@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { and, eq } from "drizzle-orm";
 import type { RepositoryConfig } from "@/server/config";
 import { documentMetadata, getRuntimeDatabase, repoSyncState, type DbClient } from "@/server/db";
-import { buildDocsTree, resolveDocsRoot, resolveDocumentPath } from "@/server/docs";
+import { buildDocsTree, resolveDocsRoot, resolveDocumentPath, type DocsTreeNode } from "@/server/docs";
 import { renderMarkdown } from "@/server/markdown";
 
 export type SearchResult = {
@@ -28,6 +28,10 @@ export class SearchError extends Error {
 
 export const SEARCH_TIMEOUT_MS = 3000;
 export const AI_CONTEXT_SEARCH_TIMEOUT_MS = 2500;
+
+function flattenDocumentNodes(items: DocsTreeNode[]): Extract<DocsTreeNode, { kind: "file" }>[] {
+  return items.flatMap((item) => item.kind === "file" ? [item] : flattenDocumentNodes(item.children));
+}
 
 export function buildRipgrepArgs(query: string, options: { maxResults: number }): string[] {
   return [
@@ -252,7 +256,7 @@ export function reindexRepositoryDocuments(
     null;
   let count = 0;
 
-  for (const item of buildDocsTree(repo, { reposRoot: options.reposRoot })) {
+  for (const item of flattenDocumentNodes(buildDocsTree(repo, { reposRoot: options.reposRoot }))) {
     const resolved = resolveDocumentPath(repo, item.markdownPath, { markdownOnly: true, reposRoot: options.reposRoot });
     upsertDocumentMetadata(db, repo.id, item.markdownPath, fs.readFileSync(resolved.absolutePath, "utf8"), commit);
     count += 1;

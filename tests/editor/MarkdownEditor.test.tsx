@@ -2,7 +2,7 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MarkdownEditorLauncher } from "@/features/editor/MarkdownEditor";
+import { CreateMarkdownFileButton, MarkdownEditorLauncher } from "@/features/editor/MarkdownEditor";
 
 describe("Markdown editor UI", () => {
   afterEach(() => {
@@ -19,7 +19,7 @@ describe("Markdown editor UI", () => {
     });
 
     render(<MarkdownEditorLauncher repoSlug="repo" documentPath="index.md" />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit page" }));
 
     const textarea = await screen.findByLabelText("Raw Markdown");
     await waitFor(() => expect(textarea).toHaveValue("# Hello"));
@@ -49,11 +49,11 @@ describe("Markdown editor UI", () => {
     });
 
     render(<MarkdownEditorLauncher repoSlug="repo" documentPath="old.md" />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit page" }));
     await screen.findByLabelText("Raw Markdown");
     fireEvent.change(screen.getByLabelText("Markdown path"), { target: { value: "renamed.md" } });
 
-    fireEvent.click(screen.getByRole("button", { name: "Rename" }));
+    fireEvent.click(screen.getByRole("button", { name: "Rename file" }));
     await screen.findByLabelText("New Markdown path");
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
@@ -88,7 +88,7 @@ describe("Markdown editor UI", () => {
     });
 
     render(<MarkdownEditorLauncher repoSlug="repo" documentPath="index.md" />);
-    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit page" }));
     await screen.findByLabelText("Raw Markdown");
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -97,5 +97,53 @@ describe("Markdown editor UI", () => {
     expect(screen.getByRole("link", { name: "Commit" })).toHaveAttribute("href", "https://git.example/commit/abc");
     expect(screen.getByRole("link", { name: "Branch" })).toHaveAttribute("href", "https://git.example/branch");
     expect(screen.getByRole("link", { name: "PR/MR" })).toHaveAttribute("href", "https://git.example/pull/1");
+  });
+
+  it("asks before closing with unsaved edits", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      if (String(input).includes("/api/markdown/preview")) {
+        return Response.json({ html: "<h1>Hello</h1>" });
+      }
+      return Response.json({ source: "# Hello" });
+    });
+
+    render(<MarkdownEditorLauncher repoSlug="repo" documentPath="index.md" />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit page" }));
+    const textarea = await screen.findByLabelText("Raw Markdown");
+
+    fireEvent.change(textarea, { target: { value: "# Changed" } });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(await screen.findByRole("alertdialog", { name: "Unsaved changes" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(screen.getByLabelText("Raw Markdown")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard changes" }));
+    expect(screen.queryByRole("dialog", { name: "Markdown editor" })).not.toBeInTheDocument();
+  });
+
+  it("creates empty markdown files from the file tree create button", async () => {
+    const createBodies: unknown[] = [];
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (String(input).includes("/api/markdown/preview")) {
+        return Response.json({ html: "" });
+      }
+      if (init?.method === "POST") {
+        createBodies.push(JSON.parse(String(init.body)));
+        return Response.json({ path: "guide/new.md", commit: null }, { status: 201 });
+      }
+      return Response.json({ source: "# Existing" });
+    });
+
+    render(<CreateMarkdownFileButton repoSlug="repo" />);
+    fireEvent.click(screen.getByRole("button", { name: "New file" }));
+    await screen.findByLabelText("Raw Markdown");
+
+    fireEvent.change(screen.getByLabelText("Markdown path"), { target: { value: "guide/new.md" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(screen.getByText("Create complete. No file changes to commit.")).toBeInTheDocument());
+    expect(createBodies).toEqual([{ path: "guide/new.md", source: "" }]);
   });
 });

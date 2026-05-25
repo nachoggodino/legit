@@ -50,30 +50,34 @@ export function ThemeToggle() {
     window.localStorage.setItem("legit-theme", nextTheme);
   }
 
+  function toggleTheme() {
+    chooseTheme(theme === "light" ? "dark" : "light");
+  }
+
   return (
-    <div className="theme-toggle" role="group" aria-label="Theme" suppressHydrationWarning>
-      <button
+    <button
+      className="theme-toggle"
+      type="button"
+      aria-label={`Switch to ${theme === "light" ? "dark" : "light"} theme`}
+      onClick={toggleTheme}
+      suppressHydrationWarning
+    >
+      <span
         className="theme-toggle-option"
-        type="button"
         aria-label="Use light theme"
-        aria-pressed={theme === "light"}
         data-active={theme === "light"}
-        onClick={() => chooseTheme("light")}
         suppressHydrationWarning
       >
         <SunIcon />
-      </button>
-      <button
+      </span>
+      <span
         className="theme-toggle-option"
-        type="button"
         aria-label="Use dark theme"
-        aria-pressed={theme === "dark"}
         data-active={theme === "dark"}
-        onClick={() => chooseTheme("dark")}
         suppressHydrationWarning
       >
         <MoonIcon />
-      </button>
-    </div>
+      </span>
+    </button>
   );
 }

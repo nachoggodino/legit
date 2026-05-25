@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { AppShell } from "@/components/AppShell";
 import { DocsPage } from "@/features/docs/DocsPage";
@@ -12,7 +12,7 @@ vi.mock("@/components/ThemeToggle", () => ({
 }));
 
 vi.mock("@/server/auth", () => ({
-  canEditRepo: () => false,
+  canEditRepo: (user: { role?: string } | null) => user?.role === "editor" || user?.role === "admin",
 }));
 
 vi.mock("@/features/search/DocsSearch", () => ({
@@ -21,6 +21,7 @@ vi.mock("@/features/search/DocsSearch", () => ({
 
 vi.mock("@/features/editor/MarkdownEditor", () => ({
   MarkdownEditorLauncher: () => null,
+  CreateMarkdownFileButton: () => <button type="button">New file</button>,
 }));
 
 const config: LegitConfig = {
@@ -83,5 +84,27 @@ describe("auth links", () => {
     );
     expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("shows account actions in a profile popup and exposes file creation to editors", () => {
+    render(
+      <DocsPage
+        repo={repo}
+        user={{ id: "admin", email: "admin@example.com", name: "Ada", role: "admin" }}
+        markdownPath="index.md"
+        title="Title"
+        html="<p>Body</p>"
+        tree={[]}
+        toc={[]}
+        aiEnabled={false}
+        hasDocumentTitleHeading={false}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /New file/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Adaadmin/i }));
+
+    expect(screen.getByRole("menuitem", { name: "Admin page" })).toHaveAttribute("href", "/admin");
+    expect(screen.getByRole("menuitem", { name: "Log out" })).toHaveAttribute("href", "/api/auth/signout");
   });
 });

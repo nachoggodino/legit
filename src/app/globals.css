@@ -12,6 +12,7 @@ body {
 }
 
 body {
+  height: 100%;
   background: var(--copi-bg);
   color: var(--copi-text);
   font-family: var(--copi-font-sans);
@@ -34,6 +35,10 @@ select,
 input,
 textarea {
   font: inherit;
+}
+
+button {
+  line-height: 1;
 }
 
 .app-shell {
@@ -123,7 +128,8 @@ textarea {
 .editor-toolbar input,
 .editor-toolbar button,
 .editor-ai-row input,
-.editor-ai-row button {
+.editor-ai-row button,
+.editor-confirmation-actions button {
   min-height: 2rem;
   border: 1px solid var(--copi-border);
   border-radius: var(--copi-radius);
@@ -135,14 +141,20 @@ textarea {
   min-width: 0;
   border-color: transparent;
   padding: 0 0.65rem;
+  line-height: 2.25rem;
 }
 
 .search-box button,
 .editor-toolbar button,
-.editor-ai-row button {
+.editor-ai-row button,
+.editor-confirmation-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 0.65rem;
   cursor: pointer;
   font-weight: 700;
+  line-height: 1;
   transition:
     transform 150ms ease,
     border-color 150ms ease,
@@ -151,9 +163,23 @@ textarea {
     color 150ms ease;
 }
 
+.search-box button:nth-of-type(1),
+.editor-ai-row button:nth-of-type(1) {
+  border-color: color-mix(in srgb, var(--copi-accent) 52%, var(--copi-border));
+  background: linear-gradient(135deg, var(--copi-accent-soft), var(--copi-primary-soft));
+  color: var(--copi-primary);
+}
+
+.search-box button:nth-of-type(2) {
+  border-color: color-mix(in srgb, var(--copi-secondary) 44%, var(--copi-border));
+  background: linear-gradient(135deg, var(--copi-secondary-soft), var(--copi-surface));
+  color: var(--copi-secondary);
+}
+
 .search-box button:hover,
 .editor-toolbar button:hover,
 .editor-ai-row button:hover,
+.editor-confirmation-actions button:hover,
 .admin-action:hover {
   border-color: color-mix(in srgb, var(--copi-accent) 60%, var(--copi-border));
   background: linear-gradient(135deg, var(--copi-accent-soft), var(--copi-primary-soft));
@@ -192,6 +218,28 @@ textarea {
 .search-popover span,
 .muted {
   color: var(--copi-text-muted);
+}
+
+.loading-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.spinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid color-mix(in srgb, var(--copi-accent) 24%, transparent);
+  border-top-color: var(--copi-secondary);
+  border-radius: 50%;
+  animation: copi-spin 700ms linear infinite;
+}
+
+@keyframes copi-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .ai-answer {
@@ -233,6 +281,7 @@ textarea {
   gap: 0.5rem;
   padding: 0 0.75rem;
   font-weight: 600;
+  line-height: 1;
 }
 
 .nav-link:hover,
@@ -251,10 +300,11 @@ textarea {
 .nav-link:focus-visible,
 .repo-card:focus-visible,
 .sidebar-item:focus-visible,
-.theme-toggle-option:focus-visible,
+.theme-toggle:focus-visible,
 .search-box button:focus-visible,
 .editor-toolbar button:focus-visible,
 .editor-ai-row button:focus-visible,
+.editor-confirmation-actions button:focus-visible,
 .admin-action:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--copi-accent) 72%, white);
   outline-offset: 2px;
@@ -273,7 +323,64 @@ textarea {
   background: linear-gradient(135deg, var(--copi-accent), var(--copi-secondary));
 }
 
-.user-menu {
+.profile-menu {
+  position: relative;
+}
+
+.profile-menu-trigger {
+  cursor: pointer;
+}
+
+.profile-menu-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-popover {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 50;
+  display: grid;
+  min-width: 230px;
+  padding: 0.45rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  box-shadow: var(--copi-shadow);
+}
+
+.profile-popover-header {
+  display: grid;
+  gap: 0.05rem;
+  padding: 0.55rem 0.65rem 0.65rem;
+  border-bottom: 1px solid var(--copi-border);
+}
+
+.profile-popover-header span {
+  color: var(--copi-text-muted);
+  font-size: 0.86rem;
+}
+
+.profile-popover a {
+  display: flex;
+  align-items: center;
+  min-height: 2.35rem;
+  padding: 0 0.65rem;
+  border-radius: var(--copi-radius);
+  font-weight: 750;
+}
+
+.profile-popover a:hover,
+.profile-popover a:focus-visible {
+  background: var(--copi-primary-soft);
+  color: var(--copi-primary);
+  outline: 0;
+}
+
+.user-menu,
+.profile-menu-trigger {
   max-width: 240px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -301,6 +408,7 @@ textarea {
   border-radius: 999px;
   background: color-mix(in srgb, var(--copi-surface) 82%, var(--copi-surface-muted));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), var(--copi-shadow);
+  cursor: pointer;
 }
 
 .theme-toggle::before {
@@ -331,13 +439,12 @@ textarea {
   border-radius: 999px;
   background: transparent;
   color: var(--copi-text-muted);
-  cursor: pointer;
   transition:
     color 160ms ease,
     transform 160ms ease;
 }
 
-.theme-toggle-option:hover {
+.theme-toggle:hover .theme-toggle-option {
   transform: scale(1.06);
 }
 
@@ -357,16 +464,15 @@ textarea {
 
 .docs-frame {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, var(--copi-content-width)) 260px;
   gap: 2rem;
-  max-width: 1240px;
+  max-width: 1520px;
+  min-height: calc(100vh - var(--copi-navbar-height));
   margin: 0 auto;
   padding: 2rem 1.25rem;
 }
 
 .docs-sidebar {
-  position: sticky;
-  top: calc(var(--copi-navbar-height) + 1.5rem);
   align-self: start;
   min-height: 420px;
   padding: 1rem;
@@ -382,6 +488,53 @@ textarea {
   text-transform: uppercase;
 }
 
+.sidebar-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.sidebar-heading-row .sidebar-heading {
+  margin: 0;
+}
+
+.sidebar-create-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--copi-accent) 52%, var(--copi-border));
+  border-radius: var(--copi-radius);
+  background: linear-gradient(135deg, var(--copi-accent-soft), var(--copi-surface));
+  color: var(--copi-primary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.sidebar-create-button svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.sidebar-create-button:hover,
+.sidebar-create-button:focus-visible {
+  border-color: var(--copi-accent);
+  box-shadow: var(--copi-glow);
+  outline: 0;
+  transform: translateY(-1px);
+}
+
 .sidebar-item {
   display: block;
   padding: 0.5rem 0.6rem;
@@ -393,6 +546,55 @@ textarea {
     background 150ms ease,
     box-shadow 150ms ease,
     color 150ms ease;
+}
+
+.sidebar-directory {
+  margin: 0.15rem 0;
+}
+
+.sidebar-directory summary {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2.2rem;
+  border-radius: 0 var(--copi-radius) var(--copi-radius) 0;
+  color: var(--copi-text);
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.sidebar-directory summary::-webkit-details-marker {
+  display: none;
+}
+
+.sidebar-directory summary:hover,
+.sidebar-directory summary:focus-visible {
+  background: linear-gradient(135deg, var(--copi-accent-soft), var(--copi-primary-soft));
+  color: var(--copi-text);
+  outline: 0;
+  transform: translateY(-1px);
+}
+
+.sidebar-disclosure {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 150ms ease;
+}
+
+.sidebar-directory[open] > summary .sidebar-disclosure {
+  transform: rotate(45deg);
+}
+
+.sidebar-directory-children {
+  margin: 0.1rem 0 0.25rem;
 }
 
 .sidebar-item.active {
@@ -413,19 +615,52 @@ textarea {
   gap: 1rem;
 }
 
+.doc-outline {
+  align-self: start;
+  min-height: 220px;
+  padding: 1rem 0 1rem 1rem;
+  border-left: 1px solid var(--copi-border);
+}
+
 .toc-panel {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.7rem;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0;
   border: 1px solid var(--copi-border);
   border-radius: var(--copi-radius);
   background: var(--copi-surface);
+  overflow: hidden;
 }
 
-.toc-panel a {
+.toc-link {
+  position: relative;
+  display: block;
+  padding: 0.45rem 0.65rem 0.45rem 1rem;
+  color: var(--copi-text-muted);
+  font-size: 0.92rem;
+  font-weight: 650;
+}
+
+.toc-link::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0.55rem;
+  width: 1px;
+  background: var(--copi-border);
+}
+
+.toc-link:hover,
+.toc-link:focus-visible {
+  background: var(--copi-primary-soft);
   color: var(--copi-primary);
-  font-weight: 700;
+  outline: 0;
+}
+
+.toc-level-3 {
+  padding-left: 1.85rem;
+  font-size: 0.86rem;
 }
 
 .markdown-body {
@@ -438,6 +673,22 @@ textarea {
 .markdown-body h4 {
   margin: 1.6rem 0 0.6rem;
   line-height: 1.18;
+}
+
+.markdown-body h1,
+.markdown-body h2 {
+  background: linear-gradient(135deg, var(--copi-primary), var(--copi-accent) 58%, var(--copi-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.markdown-body h3 {
+  color: var(--copi-primary);
+}
+
+.markdown-body h4 {
+  color: var(--copi-secondary);
 }
 
 .markdown-body p,
@@ -476,6 +727,52 @@ textarea {
   color: #f8fafc;
 }
 
+.code-block-shell {
+  position: relative;
+  margin: 1rem 0;
+}
+
+.code-block-shell pre {
+  margin: 0;
+  padding-top: 2.7rem;
+}
+
+.code-copy-button {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid rgba(248, 250, 252, 0.18);
+  border-radius: var(--copi-radius);
+  background: rgba(15, 23, 42, 0.72);
+  color: #f8fafc;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.code-copy-button svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.1;
+}
+
+.code-copy-button:hover,
+.code-copy-button:focus-visible {
+  background: rgba(14, 165, 233, 0.28);
+  outline: 2px solid rgba(248, 250, 252, 0.36);
+  outline-offset: 1px;
+}
+
 .markdown-body code {
   font-family: var(--copi-font-editor);
 }
@@ -509,6 +806,7 @@ textarea {
   margin-right: 0.4rem;
   color: var(--copi-text-muted);
   opacity: 0;
+  cursor: copy;
 }
 
 .markdown-body h1:hover .heading-anchor,
@@ -590,7 +888,12 @@ textarea {
   right: 1.25rem;
   bottom: 1.25rem;
   z-index: 30;
-  min-height: 2.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 8.4rem;
+  min-height: 3rem;
+  justify-content: center;
   padding: 0 1rem;
   border: 1px solid var(--copi-border);
   border-radius: var(--copi-radius);
@@ -599,10 +902,21 @@ textarea {
   box-shadow: var(--copi-shadow);
   cursor: pointer;
   font-weight: 800;
+  line-height: 1;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease,
     filter 160ms ease;
+}
+
+.floating-edit-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
 }
 
 .floating-edit-button:hover,
@@ -621,8 +935,9 @@ textarea {
 }
 
 .editor-modal {
-  display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  display: flex;
+  position: relative;
+  flex-direction: column;
   width: min(1400px, 100%);
   height: min(900px, 100%);
   margin: 0 auto;
@@ -642,11 +957,139 @@ textarea {
   border-bottom: 1px solid var(--copi-border);
 }
 
-.editor-toolbar input,
-.editor-ai-row input {
+.editor-toolbar {
+  min-height: 4.35rem;
+}
+
+.editor-toolbar button {
+  min-height: 2.55rem;
+  padding: 0 0.95rem;
+  font-size: 0.98rem;
+}
+
+.editor-ai-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 5.1rem;
+  padding: 0.85rem;
+  border-top: 1px solid var(--copi-border);
+  border-bottom: 0;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--copi-accent-soft) 62%, transparent), transparent 58%),
+    var(--copi-surface);
+}
+
+.editor-path-field,
+.editor-ai-input {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  flex: 1;
+  gap: 0.55rem;
+  align-items: center;
+  min-width: 0;
+  color: var(--copi-text-muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.editor-ai-input {
+  grid-template-columns: minmax(0, 1fr);
+  text-transform: none;
+}
+
+.editor-path-field input,
+.editor-ai-input input {
   flex: 1;
   min-width: 0;
   padding: 0 0.65rem;
+}
+
+.editor-ai-input input {
+  min-height: 2.7rem;
+  font-size: 1rem;
+}
+
+.editor-ai-input input::placeholder {
+  color: color-mix(in srgb, var(--copi-text-muted) 62%, transparent);
+}
+
+.editor-ai-row button {
+  min-height: 2.7rem;
+  padding: 0 1rem;
+  justify-self: end;
+}
+
+.editor-ai-row .editor-status {
+  grid-column: 1 / -1;
+  justify-self: end;
+  align-self: center;
+}
+
+.editor-close-button {
+  width: 44px;
+  padding: 0;
+}
+
+.editor-icon-button {
+  width: 2.55rem;
+  padding: 0 !important;
+}
+
+.editor-toolbar button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.editor-path-field button {
+  border-color: color-mix(in srgb, var(--copi-secondary) 52%, var(--copi-primary));
+  background: linear-gradient(135deg, var(--copi-secondary), var(--copi-primary));
+  color: white;
+  box-shadow: 0 10px 22px rgba(234, 88, 12, 0.16);
+}
+
+.editor-path-field button:hover,
+.editor-path-field button:focus-visible {
+  border-color: color-mix(in srgb, var(--copi-secondary) 62%, var(--copi-accent));
+  background: linear-gradient(135deg, var(--copi-primary), var(--copi-secondary));
+  color: white;
+}
+
+.editor-icon-button.primary-action {
+  border-color: color-mix(in srgb, var(--copi-primary) 50%, var(--copi-border));
+  background: linear-gradient(135deg, var(--copi-primary), var(--copi-accent) 54%, var(--copi-secondary));
+  color: white;
+}
+
+.editor-icon-button.primary-action:hover,
+.editor-icon-button.primary-action:focus-visible {
+  border-color: color-mix(in srgb, var(--copi-accent) 68%, var(--copi-primary));
+  background: linear-gradient(135deg, var(--copi-secondary), var(--copi-primary) 54%, var(--copi-accent));
+  color: white;
+}
+
+.editor-close-button svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 3.8;
+}
+
+.danger-action {
+  border-color: color-mix(in srgb, var(--copi-danger) 48%, var(--copi-border)) !important;
+  background: linear-gradient(135deg, var(--copi-danger-soft), var(--copi-surface)) !important;
+  color: var(--copi-danger) !important;
+}
+
+.editor-status {
+  min-width: 9rem;
+  color: var(--copi-text-muted);
+  font-size: 0.92rem;
+  font-weight: 700;
 }
 
 .editor-confirmation {
@@ -679,6 +1122,12 @@ textarea {
 .editor-confirmation-actions {
   display: flex;
   gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.editor-confirmation-actions button {
+  min-height: 2.35rem;
+  padding: 0 0.85rem;
 }
 
 .editor-workflow-result {
@@ -700,18 +1149,110 @@ textarea {
 .editor-panes {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 6px minmax(0, 1fr);
+  flex: 1;
   min-height: 0;
 }
 
+.editor-source-shell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--copi-accent-soft) 45%, transparent), transparent 40%),
+    var(--copi-surface-muted);
+}
+
+.editor-highlight,
 .editor-panes textarea {
   width: 100%;
+  height: 100%;
   min-width: 0;
-  resize: none;
   border: 0;
   padding: 1rem;
-  background: var(--copi-surface-muted);
-  color: var(--copi-text);
   font-family: var(--copi-font-editor);
+  font-size: 0.92rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow: auto;
+}
+
+.editor-highlight {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  pointer-events: none;
+}
+
+.editor-panes textarea {
+  position: relative;
+  z-index: 1;
+  resize: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--copi-text) 10%, transparent);
+  caret-color: var(--copi-primary);
+}
+
+.editor-panes textarea::selection {
+  background: color-mix(in srgb, var(--copi-accent) 30%, transparent);
+  color: var(--copi-text);
+}
+
+.md-heading-marker,
+.md-list-marker {
+  color: var(--copi-secondary);
+  font-weight: 800;
+}
+
+.md-heading-text,
+.md-strong {
+  color: var(--copi-primary);
+  font-weight: 800;
+}
+
+.md-inline-code {
+  color: var(--copi-success);
+}
+
+.md-emphasis {
+  color: var(--copi-secondary);
+  font-style: italic;
+}
+
+.md-strike {
+  color: var(--copi-danger);
+  text-decoration: line-through;
+}
+
+.md-underline {
+  color: var(--copi-accent);
+  text-decoration: underline;
+}
+
+.md-link {
+  color: var(--copi-accent);
+  text-decoration: underline;
+}
+
+.md-code-fence {
+  color: var(--copi-success);
+  font-weight: 800;
+}
+
+.md-blockquote-marker,
+.md-table-marker {
+  color: var(--copi-warning);
+  font-weight: 800;
+}
+
+.editor-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--copi-surface) 78%, transparent);
+  color: var(--copi-primary);
+  font-weight: 800;
 }
 
 .editor-divider {
@@ -723,6 +1264,36 @@ textarea {
   min-width: 0;
   overflow: auto;
   padding: 1rem;
+}
+
+.editor-unsaved-dialog {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.editor-unsaved-card {
+  display: grid;
+  gap: 0.75rem;
+  width: min(420px, 100%);
+  padding: 1.1rem;
+  border: 1px solid var(--copi-border);
+  border-radius: var(--copi-radius);
+  background: var(--copi-surface);
+  box-shadow: var(--copi-shadow);
+}
+
+.editor-unsaved-card strong {
+  font-size: 1.2rem;
+}
+
+.editor-unsaved-card p {
+  margin: 0;
+  color: var(--copi-text-muted);
 }
 
 .repo-card-warning {
@@ -822,6 +1393,9 @@ textarea {
 }
 
 .admin-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 2.15rem;
   margin: 0.15rem 0;
   padding: 0 0.75rem;
@@ -831,6 +1405,7 @@ textarea {
   color: var(--copi-text);
   cursor: pointer;
   font-weight: 700;
+  line-height: 1;
   transition:
     transform 150ms ease,
     border-color 150ms ease,
@@ -937,8 +1512,28 @@ textarea {
     border-bottom: 1px solid var(--copi-border);
   }
 
+  .doc-outline {
+    position: static;
+    min-height: 0;
+    padding: 0;
+    border-left: 0;
+  }
+
   .editor-confirmation {
     grid-template-columns: 1fr;
+  }
+
+  .editor-ai-row {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-panes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor-divider,
+  .editor-preview {
+    display: none;
   }
 
   .editor-confirmation-actions {

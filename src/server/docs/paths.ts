@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { parse as parseYaml } from "yaml";
 import type { RepositoryConfig } from "@/server/config";
 import { resolveRepoPath } from "@/server/git";
 
@@ -114,30 +115,94 @@ export function resolveRouteDocument(
 }
 
 export type DocsTreeItem = {
+  kind: "file";
   title: string;
   markdownPath: string;
   routePath: string;
   depth: number;
 };
 
-export function buildDocsTree(repo: Pick<RepositoryConfig, "id" | "docsPath">, options: { reposRoot?: string } = {}): DocsTreeItem[] {
+export type DocsTreeDirectory = {
+  kind: "directory";
+  title: string;
+  path: string;
+  depth: number;
+  children: DocsTreeNode[];
+};
+
+export type DocsTreeNode = DocsTreeDirectory | DocsTreeItem;
+
+function humanizePathSegment(segment: string): string {
+  return segment
+    .replace(/\.md$/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function titleFromFrontmatter(source: string): string | null {
+  if (!source.startsWith("---\n")) {
+    return null;
+  }
+
+  const end = source.indexOf("\n---", 4);
+  if (end === -1) {
+    return null;
+  }
+
+  try {
+    const parsed: unknown = parseYaml(source.slice(4, end).trim());
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const title = (parsed as Record<string, unknown>).title;
+      return typeof title === "string" && title.trim() ? title.trim() : null;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function titleFromFirstHeading(source: string): string | null {
+  const frontmatterEnd = source.startsWith("---\n") ? source.indexOf("\n---", 4) : -1;
+  const body = frontmatterEnd >= 0 ? source.slice(frontmatterEnd + 4).replace(/^\r?\n/, "") : source;
+  const heading = /^#\s+(.+)$/m.exec(body);
+  return heading?.[1]?.replace(/\s+#*$/, "").trim() || null;
+}
+
+function titleFromMarkdownFile(absolutePath: string, markdownPath: string): string {
+  const source = fs.readFileSync(absolutePath, "utf8");
+  const basename = path.basename(markdownPath, ".md");
+  const fallback = basename === "index" ? humanizePathSegment(path.basename(path.dirname(markdownPath)) || "Overview") : humanizePathSegment(basename);
+  return titleFromFrontmatter(source) ?? titleFromFirstHeading(source) ?? fallback;
+}
+
+export function buildDocsTree(repo: Pick<RepositoryConfig, "id" | "docsPath">, options: { reposRoot?: string } = {}): DocsTreeNode[] {
   const docsRoot = resolveDocsRoot(repo, options.reposRoot);
   if (!fs.existsSync(docsRoot)) {
     return [];
   }
 
-  const items: DocsTreeItem[] = [];
-
-  function walk(directory: string, depth: number): void {
+  function walk(directory: string, depth: number): DocsTreeNode[] {
     const entries = fs
       .readdirSync(directory, { withFileTypes: true })
       .filter((entry) => !entry.name.startsWith("."))
       .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name));
 
+    const items: DocsTreeNode[] = [];
+
     for (const entry of entries) {
       const absolute = path.join(directory, entry.name);
       if (entry.isDirectory()) {
-        walk(absolute, depth + 1);
+        const children = walk(absolute, depth + 1);
+        if (children.length > 0) {
+          items.push({
+            kind: "directory",
+            title: humanizePathSegment(entry.name),
+            path: path.relative(docsRoot, absolute).replace(/\\/g, "/"),
+            depth,
+            children,
+          });
+        }
         continue;
       }
 
@@ -147,15 +212,15 @@ export function buildDocsTree(repo: Pick<RepositoryConfig, "id" | "docsPath">, o
 
       const markdownPath = path.relative(docsRoot, absolute).replace(/\\/g, "/");
       const routePath = documentPathToRoutePath(markdownPath);
-      const basename = path.basename(markdownPath, ".md");
-      const title = basename === "index" ? path.basename(path.dirname(markdownPath)) || "Overview" : basename;
+      const title = titleFromMarkdownFile(absolute, markdownPath);
 
-      items.push({ title, markdownPath, routePath, depth });
+      items.push({ kind: "file", title, markdownPath, routePath, depth });
     }
+
+    return items;
   }
 
-  walk(docsRoot, 0);
-  return items;
+  return walk(docsRoot, 0);
 }
 
 export function resolveRelativeMarkdownLink(currentMarkdownPath: string, href: string): string {

@@ -3,6 +3,7 @@ import type { LegitConfig } from "@/server/config";
 import type { AuthUser } from "@/server/auth";
 import { buildSignInHref } from "@/server/auth/links";
 import { ThemeToggle } from "./ThemeToggle";
+import { UserMenu } from "./UserMenu";
 
 type AppShellProps = {
   config: LegitConfig | null;
@@ -41,21 +42,8 @@ export function AppShell({ config, user }: AppShellProps) {
               Open docs
             </Link>
           ) : null}
-          {user?.role === "admin" ? (
-            <Link className="nav-link" href="/admin">
-              Admin
-            </Link>
-          ) : null}
           {user ? (
-            <>
-              <span className="nav-link user-menu" aria-label="User menu">
-                {user.name ?? user.email}
-                <span className="role-pill">{user.role}</span>
-              </span>
-              <Link className="nav-link" href="/api/auth/signout">
-                Log out
-              </Link>
-            </>
+            <UserMenu user={user} />
           ) : (
             <Link className="nav-link" href={buildSignInHref("/")} rel="noopener noreferrer" target="_blank">
               Log in

@@ -30,7 +30,7 @@ test("search UI basic flow", async ({ page }) => {
 test("editor modal stays hidden for anonymous public readers", async ({ page }) => {
   await page.goto("/public");
 
-  await expect(page.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit page" })).toHaveCount(0);
 });
 
 test("private docs redirect anonymous readers to sign in", async ({ page }) => {
