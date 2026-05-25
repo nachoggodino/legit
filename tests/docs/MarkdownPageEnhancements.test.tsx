@@ -53,4 +53,29 @@ describe("Markdown page enhancements", () => {
 
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("#details"));
   });
+
+  it("falls back to execCommand when clipboard API is unavailable", async () => {
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: execCommand,
+    });
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: undefined,
+    });
+
+    render(
+      <div className="markdown-body">
+        <pre>
+          <code>fallback copy</code>
+        </pre>
+        <MarkdownPageEnhancements />
+      </div>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Copy code" }));
+
+    await waitFor(() => expect(execCommand).toHaveBeenCalledWith("copy"));
+  });
 });

@@ -4,10 +4,12 @@ import type { DbClient } from "@/server/db";
 import { cloneOrPullRepository, redactGitUrl, type GitRunner, type SecretEnv } from "@/server/git";
 import type { AuthUser } from "@/server/auth/types";
 import { reindexRepositoryDocuments } from "@/server/search";
+import { withFileLease } from "./lease";
 
 export type RepoSyncStatus = "idle" | "syncing" | "succeeded" | "failed";
 
 const repoLocks = new Map<string, Promise<unknown>>();
+const REPO_LOCK_STALE_MS = 30 * 60 * 1000;
 
 export class RepoSyncLockedError extends Error {
   constructor(repoId: string) {
@@ -21,7 +23,13 @@ export async function withRepoLock<T>(repoId: string, work: () => Promise<T>): P
     throw new RepoSyncLockedError(repoId);
   }
 
-  const promise = work();
+  const promise = withFileLease(`repo-${repoId}`, work, REPO_LOCK_STALE_MS).catch((error) => {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EEXIST") {
+      throw new RepoSyncLockedError(repoId);
+    }
+    throw error;
+  });
   repoLocks.set(repoId, promise);
 
   try {

@@ -28,7 +28,9 @@
     "docker:status": "docker compose ps",
     "docker:build": "docker compose build",
     "docker:clean": "docker compose down --volumes --remove-orphans",
-    "docker:shell": "docker compose exec app /bin/sh"
+    "docker:shell": "docker compose exec app /bin/sh",
+    "ops:backup": "node scripts/backup-data.mjs",
+    "ops:restore": "node scripts/restore-data.mjs"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.2",

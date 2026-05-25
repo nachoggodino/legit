@@ -106,5 +106,29 @@ describe("auth links", () => {
 
     expect(screen.getByRole("menuitem", { name: "Admin page" })).toHaveAttribute("href", "/admin");
     expect(screen.getByRole("menuitem", { name: "Log out" })).toHaveAttribute("href", "/api/auth/signout");
+
+    fireEvent.pointerDown(screen.getByRole("main"));
+    expect(screen.queryByRole("menuitem", { name: "Admin page" })).not.toBeInTheDocument();
+  });
+
+  it("hides admin navigation for non-admin profile menus", () => {
+    render(
+      <DocsPage
+        repo={repo}
+        user={{ id: "editor", email: "editor@example.com", name: "Ed", role: "editor" }}
+        markdownPath="index.md"
+        title="Title"
+        html="<p>Body</p>"
+        tree={[]}
+        toc={[]}
+        aiEnabled={false}
+        hasDocumentTitleHeading={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Ededitor/i }));
+
+    expect(screen.queryByRole("menuitem", { name: "Admin page" })).not.toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Log out" })).toHaveAttribute("href", "/api/auth/signout");
   });
 });

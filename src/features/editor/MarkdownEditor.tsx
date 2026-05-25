@@ -193,7 +193,7 @@ function MarkdownEditorModal({
   const [savedPath, setSavedPath] = useState(documentPath);
   const [isCreateMode, setIsCreateMode] = useState(create);
   const [preview, setPreview] = useState("");
-  const [status, setStatus] = useState("Loading");
+  const [status, setStatus] = useState(create ? "" : "Loading");
   const [workflowResult, setWorkflowResult] = useState<CommitResult | null>(null);
   const [instruction, setInstruction] = useState("");
   const [pendingConfirmation, setPendingConfirmation] = useState<PendingConfirmation | null>(null);
@@ -204,7 +204,6 @@ function MarkdownEditorModal({
 
   useEffect(() => {
     if (create) {
-      setStatus("");
       return;
     }
 

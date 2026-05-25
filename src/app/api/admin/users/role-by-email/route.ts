@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
-import { AdminUserError, updateUserRole } from "@/server/admin/users";
+import { AdminUserError, grantUserRoleByEmail } from "@/server/admin/users";
 import { requireAdmin } from "@/server/auth";
 import { AuthenticationRequiredError, AuthorizationError } from "@/server/auth/types";
 import { rejectCrossOriginMutation } from "@/server/http/origin";
 
 export const runtime = "nodejs";
 
-export async function POST(request: Request, context: { params: Promise<{ userId: string }> }) {
+export async function POST(request: Request) {
   const invalidOrigin = rejectCrossOriginMutation(request);
   if (invalidOrigin) return invalidOrigin;
 
   try {
     const admin = await requireAdmin();
-    const { userId } = await context.params;
     const form = await request.formData();
+    const email = String(form.get("email") ?? "");
     const role = String(form.get("role") ?? "");
-    await updateUserRole(userId, role, admin.id);
+    await grantUserRoleByEmail(email, role, admin.id);
     if (request.headers.get("accept")?.includes("text/html")) {
       return NextResponse.redirect(new URL("/admin", request.url), { status: 303 });
     }
@@ -30,6 +30,6 @@ export async function POST(request: Request, context: { params: Promise<{ userId
     if (error instanceof AdminUserError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    return NextResponse.json({ error: "Role update failed." }, { status: 500 });
+    return NextResponse.json({ error: "Role grant failed." }, { status: 500 });
   }
 }

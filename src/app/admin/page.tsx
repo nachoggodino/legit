@@ -173,6 +173,17 @@ export default async function AdminPage() {
               <p>Global v1 roles. Per-repo RBAC is intentionally deferred.</p>
             </div>
           </div>
+          <form action="/api/admin/users/role-by-email" method="post" className="admin-inline-form">
+            <input name="email" type="email" placeholder="user@company.com" required />
+            <select name="role" defaultValue="viewer">
+              <option value="viewer">viewer</option>
+              <option value="editor">editor</option>
+              <option value="admin">admin</option>
+            </select>
+            <button className="admin-action" type="submit">
+              Grant by email
+            </button>
+          </form>
           <div className="admin-table-wrap">
             <table className="admin-table">
               <thead>
